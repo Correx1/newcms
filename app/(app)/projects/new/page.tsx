@@ -64,22 +64,31 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!clientId) {
-      toast.error("Please select a client.")
+
+    // Field-by-field validation with precise toast messages
+    if (!title.trim()) {
+      toast.error("Project title is required.", { description: "Give the project a clear name before saving." })
+      return
+    }
+    if (!details.trim()) {
+      toast.error("Overview details are required.", { description: "Describe what this project involves." })
+      return
+    }
+    if (!deliverables.trim()) {
+      toast.error("Deliverables are required.", { description: "List what will be delivered at the end of the project." })
       return
     }
 
     setSubmitting(true)
 
-    // Parallel insert: First insert Project to acquire ID
     const projectPayload = {
-      title,
-      details,
-      deliverables,
-      deadline,
+      title: title.trim(),
+      details: details.trim(),
+      deliverables: deliverables.trim(),
+      deadline: deadline || null,
       price: price || null,
       status,
-      client_id: clientId
+      client_id: clientId || null
     }
 
     const { data: insertedProject, error: insertError } = await supabase
@@ -89,7 +98,7 @@ export default function NewProjectPage() {
       .single()
 
     if (insertError || !insertedProject) {
-      toast.error("Failed to create project. Please try again.")
+      toast.error("Failed to create project.", { description: insertError?.message ?? "Please try again." })
       setSubmitting(false)
       return
     }
@@ -256,9 +265,9 @@ export default function NewProjectPage() {
               
               <div className="space-y-2.5">
                 <Label htmlFor="client" className="text-sm font-semibold flex items-center gap-2">
-                   <Building2 className="h-4 w-4 text-muted-foreground" /> Client
+                   <Building2 className="h-4 w-4 text-muted-foreground" /> Client <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
-                <Select required value={clientId} onValueChange={(val) => setClientId(val || "")}>
+                <Select value={clientId} onValueChange={(val) => setClientId(val || "")}>
                   <SelectTrigger className="min-h-[44px] h-auto py-2 bg-background transition-colors focus:ring-1 shadow-sm [&>span]:whitespace-normal [&>span]:text-left [&>span]:break-words">
                     {clientId ? clients.find(c => c.id === clientId)?.company : <span className="text-muted-foreground flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Select a client...</span>}
                   </SelectTrigger>
@@ -321,7 +330,7 @@ export default function NewProjectPage() {
 
               <div className="space-y-2.5">
                 <Label htmlFor="deadline" className="text-sm font-semibold flex items-center gap-2">
-                   <Calendar className="h-4 w-4 text-muted-foreground" /> Deadline (optional)
+                   <Calendar className="h-4 w-4 text-muted-foreground" /> Deadline <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <Input 
                   id="deadline" 

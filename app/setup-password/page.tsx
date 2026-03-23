@@ -47,43 +47,55 @@ export default function SetupPasswordPage() {
       return
     }
 
-    // 1️⃣ Set the password
-    const { error: updateError } = await supabase.auth.updateUser({ password })
-    if (updateError) {
-      setErrorMsg(updateError.message)
-      setLoading(false)
-      return
-    }
-
-    // 2️⃣ Get current user info
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // 3️⃣ Ensure profile row exists — calls server API that bypasses RLS
-    if (user) {
-      const res = await fetch('/api/ensure-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: user.user_metadata?.full_name ?? user.user_metadata?.name,
-          role: user.user_metadata?.role,
-        }),
-        credentials: 'include',
+    try {
+      // 1️⃣ Set the password — with a timeout guard in case the auth lock is contested
+      const updateWithTimeout = () => new Promise<{ error: { message: string } | null }>((resolve) => {
+        const timer = setTimeout(() =>
+          resolve({ error: { message: "Request timed out. Please try again." } }), 15000)
+        supabase.auth.updateUser({ password }).then((result: { error: { message: string } | null }) => {
+          clearTimeout(timer)
+          resolve(result)
+        })
       })
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        console.error('[setup-password] ensure-profile failed:', body.error)
-        // Non-fatal for now: still attempt to redirect; auth-context will retry
+      const { error: updateError } = await updateWithTimeout()
+      if (updateError) {
+        setErrorMsg(updateError.message)
+        return
       }
-    }
 
-    // 4️⃣ Show success, then do a full-page redirect to dashboard
-    //    (full reload ensures auth-context re-hydrates cleanly)
-    setLoading(false)
-    setSuccess(true)
-    setTimeout(() => {
-      window.location.href = "/"
-    }, 1500)
+      // 2️⃣ Get current user info
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // 3️⃣ Ensure profile row exists — calls server API that bypasses RLS
+      if (user) {
+        const res = await fetch('/api/ensure-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: user.user_metadata?.full_name ?? user.user_metadata?.name,
+            role: user.user_metadata?.role,
+          }),
+          credentials: 'include',
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          console.error('[setup-password] ensure-profile failed:', body.error)
+          // Non-fatal: still redirect; auth-context will retry on load
+        }
+      }
+
+      // 4️⃣ Show success, then do a full-page redirect to dashboard
+      //    (full reload ensures auth-context re-hydrates cleanly)
+      setSuccess(true)
+      setTimeout(() => {
+        window.location.href = "/"
+      }, 1500)
+    } finally {
+      // Always clear loading — even if updateUser hung or threw unexpectedly
+      setLoading(false)
+    }
   }
 
   return (

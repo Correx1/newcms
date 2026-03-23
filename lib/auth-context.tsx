@@ -131,12 +131,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
 
             if (event === "SIGNED_IN") {
-              // Active sign-in: push to the correct dashboard
-              if (mapped) {
-                router.push(dashboardPath(mapped.role!))
-              } else if (result !== 'error') {
-                // Profile truly missing and couldn't be created
-                router.push("/setup-password")
+              // Skip redirect if the user is actively setting their password —
+              // the setup-password page controls its own redirect after updateUser().
+              const onSetupPage = typeof window !== 'undefined' &&
+                window.location.pathname === '/setup-password'
+              if (!onSetupPage) {
+                // Active sign-in: push to the correct dashboard
+                if (mapped) {
+                  router.push(dashboardPath(mapped.role!))
+                } else if (result !== 'error') {
+                  // Profile truly missing and couldn't be created
+                  router.push("/setup-password")
+                }
               }
             } else if (event === "INITIAL_SESSION" && mapped) {
               // Page refresh: if the user landed on the login page, send them home

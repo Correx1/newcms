@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Clock, Activity, CheckCircle2, Calendar, FolderKanban, Edit, User, Upload, FileText, Download, Building2, DollarSign, ExternalLink, Image as ImageIcon, ChevronDown, Trash2, AlertCircle, ThumbsUp, ShieldCheck, Loader2 } from "lucide-react"
+import { ArrowLeft, Clock, Activity, CheckCircle2, Calendar, FolderKanban, Edit, User, Upload, FileText, Download, Building2, DollarSign, ExternalLink, Image as ImageIcon, ChevronDown, Trash2, AlertCircle, ThumbsUp, ShieldCheck, Loader2, XCircle } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -70,6 +70,7 @@ export default function ProjectDetailsPage() {
       case "approved": return <ShieldCheck className="h-5 w-5 text-indigo-500" />
       case "completed": return <CheckCircle2 className="h-5 w-5 text-emerald-500" />
       case "active": return <Activity className="h-5 w-5 text-blue-500" />
+      case "rejected": return <XCircle className="h-5 w-5 text-rose-500" />
       default: return <Clock className="h-5 w-5 text-yellow-500" />
     }
   }
@@ -79,6 +80,7 @@ export default function ProjectDetailsPage() {
       case "approved": return "text-indigo-500 border-indigo-500/20 bg-indigo-500/10 hover:bg-indigo-500/20"
       case "completed": return "text-emerald-500 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20"
       case "active": return "text-blue-500 border-blue-500/20 bg-blue-500/10 hover:bg-blue-500/20"
+      case "rejected": return "text-rose-500 border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20"
       default: return "text-yellow-500 border-yellow-500/20 bg-yellow-500/10 hover:bg-yellow-500/20"
     }
   }
@@ -149,11 +151,15 @@ export default function ProjectDetailsPage() {
   }
 
   const submitRejection = async () => {
-    setProject({ ...project, status: "active", client_feedback: feedbackNotes })
-    const { error } = await supabase.from('projects').update({ status: "active", client_feedback: feedbackNotes }).eq('id', project.id)
+    // Keep all deliverables intact — just flip status to 'rejected' and record feedback
+    setProject({ ...project, status: "rejected", client_feedback: feedbackNotes })
+    const { error } = await supabase
+      .from('projects')
+      .update({ status: "rejected", client_feedback: feedbackNotes })
+      .eq('id', project.id)
     
     if (error) toast.error("Failed to request revision")
-    else toast.success("Revision requested securely")
+    else toast.success("Revision requested — delivery details preserved")
     
     setRejectModalOpen(false)
     setFeedbackNotes("")
@@ -223,6 +229,11 @@ export default function ProjectDetailsPage() {
                         <ShieldCheck className="mr-2 h-4 w-4 text-indigo-500" /> Approved
                       </DropdownMenuItem>
                     )}
+                    {project.status === "rejected" && (
+                      <DropdownMenuItem disabled className="cursor-default font-medium text-rose-500 focus:text-rose-500">
+                        <XCircle className="mr-2 h-4 w-4" /> Rejected (by client)
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
@@ -233,7 +244,7 @@ export default function ProjectDetailsPage() {
               )}
             </div>
             <p className="text-muted-foreground mt-1 text-sm flex items-center gap-2">
-              <Building2 className="h-3.5 w-3.5" /> {project.client?.company || project.client?.name || "Unknown"}
+              <Building2 className="h-3.5 w-3.5" /> {project.client?.company || project.client?.name || "Not provided"}
             </p>
           </div>
         </div>
@@ -357,16 +368,30 @@ export default function ProjectDetailsPage() {
         </div>
       </div>
 
-      {(project.status === "completed" || project.status === "approved") && (
-        <Card className={`shadow-sm mt-6 mb-8 transition-colors ${project.status === 'approved' ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
+      {(project.status === "completed" || project.status === "approved" || project.status === "rejected") && project.deliverables_summary && (
+        <Card className={`shadow-sm mt-6 mb-8 transition-colors ${
+          project.status === 'approved' ? 'border-indigo-500/30 bg-indigo-500/5'
+          : project.status === 'rejected' ? 'border-rose-500/30 bg-rose-500/5'
+          : 'border-emerald-500/30 bg-emerald-500/5'
+        }`}>
           <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
-              <CardTitle className={`flex items-center gap-2 ${project.status === 'approved' ? 'text-indigo-700 dark:text-indigo-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                {project.status === 'approved' ? <ShieldCheck className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />} 
-                {project.status === 'approved' ? 'Approved Delivery Manifest' : 'Delivery Manifest'}
+              <CardTitle className={`flex items-center gap-2 ${
+                project.status === 'approved' ? 'text-indigo-700 dark:text-indigo-400'
+                : project.status === 'rejected' ? 'text-rose-700 dark:text-rose-400'
+                : 'text-emerald-700 dark:text-emerald-400'
+              }`}>
+                {project.status === 'approved' ? <ShieldCheck className="h-5 w-5" />
+                  : project.status === 'rejected' ? <XCircle className="h-5 w-5" />
+                  : <CheckCircle2 className="h-5 w-5" />}
+                {project.status === 'approved' ? 'Approved Delivery Manifest'
+                  : project.status === 'rejected' ? 'Delivery Manifest (Under Revision)'
+                  : 'Delivery Manifest'}
               </CardTitle>
               <CardDescription>
-                {project.status === 'approved' ? 'This delivery has been officially approved and locked.' : 'Final deliverables and summary of completed work pending review.'}
+                {project.status === 'approved' ? 'This delivery has been officially approved and locked.'
+                  : project.status === 'rejected' ? 'Client requested revisions. Delivery details preserved below.'
+                  : 'Final deliverables and summary of completed work pending review.'}
               </CardDescription>
             </div>
             
@@ -381,9 +406,9 @@ export default function ProjectDetailsPage() {
               </div>
             )}
             
-            {(user?.role === "admin" || user?.role === "staff") && project.status !== "approved" && (
+            {(user?.role === "admin" || user?.role === "staff") && (project.status === "completed" || project.status === "rejected") && (
               <Button variant="outline" size="sm" onClick={() => handleStatusChange("completed")} className="bg-background/50 hover:bg-background shrink-0 font-semibold">
-                <Edit className="h-4 w-4 mr-2" /> Edit Output
+                <Edit className="h-4 w-4 mr-2" /> {project.status === "rejected" ? "Update & Resubmit" : "Edit Output"}
               </Button>
             )}
           </CardHeader>
@@ -452,13 +477,16 @@ export default function ProjectDetailsPage() {
         </Card>
       )}
 
-      {project.client_feedback && project.status === "active" && (
-        <Card className="shadow-sm mt-6 mb-8 border-destructive/30 bg-destructive/5 animate-in slide-in-from-bottom-2 fade-in relative overflow-hidden">
-          <div className="absolute right-0 top-0 bottom-0 w-2 bg-destructive"></div>
-          <CardHeader className="pb-3 border-b border-destructive/20">
-            <CardTitle className="text-destructive flex items-center gap-2 text-base font-bold">
-              <AlertCircle className="h-5 w-5" /> Revision Required (Client Feedback Hook Triggered)
+      {project.client_feedback && project.status === "rejected" && (
+        <Card className="shadow-sm mt-6 mb-8 border-rose-500/30 bg-rose-500/5 animate-in slide-in-from-bottom-2 fade-in relative overflow-hidden">
+          <div className="absolute right-0 top-0 bottom-0 w-2 bg-rose-500"></div>
+          <CardHeader className="pb-3 border-b border-rose-500/20">
+            <CardTitle className="text-rose-600 dark:text-rose-400 flex items-center gap-2 text-base font-bold">
+              <XCircle className="h-5 w-5" /> Client Revision Request
             </CardTitle>
+            <CardDescription className="text-rose-500/80">
+              The client reviewed the delivery and requested changes. Address the feedback below, then resubmit.
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
             <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{project.client_feedback}</p>

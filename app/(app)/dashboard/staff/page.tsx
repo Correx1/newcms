@@ -182,7 +182,7 @@ export default function StaffDashboard() {
                   {assignedProjects.map(project => (
                     <TableRow key={project.id} className="border-border/50">
                       <TableCell className="font-medium">{project.title}</TableCell>
-                      <TableCell className="text-muted-foreground">{project.client?.name || 'Unknown'}</TableCell>
+                      <TableCell className="text-muted-foreground">{project.client?.name || 'Not provided'}</TableCell>
                       <TableCell>
                         {project.deadline ? (
                           <span className="flex items-center whitespace-nowrap text-xs font-medium">

@@ -79,7 +79,7 @@ export default function ClientProfilePage() {
             <span className="sr-only">Exit Client Vector</span>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{clientProfile.name || "Unknown Identity"}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{clientProfile.name || "Not provided"}</h1>
             <p className="text-muted-foreground mt-1 text-sm font-semibold">Client Profile</p>
           </div>
         </div>

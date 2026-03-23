@@ -240,7 +240,7 @@ export default function ProjectsPage() {
                       </TableCell>
                       <TableCell className="py-4">
                         <span className="text-sm font-medium text-foreground">
-                          {project.client?.name || "Unknown"}
+                          {project.client?.name || "Not provided"}
                         </span>
                       </TableCell>
                       <TableCell className="py-4">
