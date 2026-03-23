@@ -1,0 +1,12 @@
+﻿app/(app)/clients/page.tsx(15,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/dashboard/staff/page.tsx(15,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/invoices/page.tsx(12,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/projects/[id]/edit/page.tsx(14,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/projects/[id]/page.tsx(16,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/projects/new/page.tsx(14,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/projects/page.tsx(15,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/staff/page.tsx(17,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/users/new/page.tsx(14,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+app/(app)/users/new/page.tsx(138,79): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'SetStateAction<string>'.
+  Type 'null' is not assignable to type 'SetStateAction<string>'.
+app/layout.tsx(22,25): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.

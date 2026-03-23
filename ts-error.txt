@@ -1,0 +1,5 @@
+app/page.tsx(19,5): error TS2554: Expected 2 arguments, but got 1.
+components/app-header.tsx(24,27): error TS2322: Type '{ children: Element; asChild: true; }' is not assignable to type 'IntrinsicAttributes & Props<unknown>'.
+  Property 'asChild' does not exist on type 'IntrinsicAttributes & Props<unknown>'.
+components/ui/dialog.tsx(69,17): error TS2322: Type '"icon-sm"' is not assignable to type '"default" | "sm" | "lg" | "icon" | null | undefined'.
+components/ui/sheet.tsx(69,17): error TS2322: Type '"icon-sm"' is not assignable to type '"default" | "sm" | "lg" | "icon" | null | undefined'.
