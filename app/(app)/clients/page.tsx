@@ -51,8 +51,8 @@ export default function ClientsPage() {
   }, [])
 
   useEffect(() => {
-    if (user?.id) fetchClients()
-  }, [user?.id, fetchClients])
+    fetchClients()
+  }, [user?.id])
 
   const visibleClients = clientList.filter(c => 
     c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -63,14 +63,19 @@ export default function ClientsPage() {
   const handleDeleteClient = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this client?")) return
     
-    // We update to a dedicated delete API if needed, but profiles can be deleted if admin has RLS access.
-    // However, since admin RLS is tricky, we'll use a fetch to an API if we had one, but let's try direct first.
-    // Actually, profiles deletion might fail if user is not using service role, but Admin should have RLS access.
-    const { error } = await supabase.from('profiles').delete().eq('id', id)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+    })
     
-    if (error) {
-      toast.error("Failed to delete client")
-      console.error(error)
+    if (!res.ok) {
+      let errData;
+      try {
+        errData = await res.json()
+      } catch (e) {
+        errData = { error: await res.text() }
+      }
+      toast.error(errData?.error || `Failed to delete client (Status ${res.status})`)
+      console.error("Delete client full error:", res.status, errData)
     } else {
       toast.success("Client deleted successfully")
       setClientList(prev => prev.filter(c => c.id !== id))

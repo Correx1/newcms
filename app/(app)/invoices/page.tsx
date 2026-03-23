@@ -56,7 +56,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     let mounted = true
-    if (user?.id) fetchInvoices()
+    fetchInvoices()
     return () => { mounted = false }
   }, [user?.id])
 
@@ -111,13 +111,13 @@ export default function InvoicesPage() {
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border/50 hover:bg-transparent">
-                  <TableHead className="w-[200px] py-4 pl-6 text-xs uppercase font-bold tracking-wider text-muted-foreground">Invoice Anchor</TableHead>
-                  {user?.role === "admin" && <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Foreign Identity</TableHead>}
-                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Target Project Mapping</TableHead>
+                  <TableHead className="w-[200px] py-4 pl-6 text-xs uppercase font-bold tracking-wider text-muted-foreground">Invoice </TableHead>
+                  {user?.role === "admin" && <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Client</TableHead>}
+                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Target Project</TableHead>
                   <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Compiled Date</TableHead>
-                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Deadline Date</TableHead>
-                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground text-right w-[120px]">Resolution Float</TableHead>
-                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Parameter Rule</TableHead>
+                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Deadline</TableHead>
+                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground text-right w-[120px]">Amount</TableHead>
+                  <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Status</TableHead>
                   <TableHead className="py-4 text-right w-[100px] pr-6"></TableHead>
                 </TableRow>
               </TableHeader>

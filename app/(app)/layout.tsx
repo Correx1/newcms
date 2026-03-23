@@ -15,18 +15,19 @@ export default function DashboardLayout({
   const { user, loading, hasSession } = useAuth()
   const router = useRouter()
 
+  // Only block rendering on the VERY FIRST cold load (user has never been set).
+  // On subsequent navigations auth-context may briefly set loading=true while
+  // it re-validates, but user is already populated — we should not tear the
+  // layout down and show a blank page in that case.
+  const isFirstLoad = loading && !user
+
   useEffect(() => {
-    // Redirect to login only when we know for sure there is no session.
-    // Do NOT redirect just because user is null — that can happen when the
-    // profile fetch errors (DB issue). hasSession is false only when
-    // onAuthStateChange confirms there is no active Supabase session.
     if (!loading && !hasSession) {
       router.replace("/")
     }
   }, [hasSession, loading, router])
 
-  // Show a skeleton while auth is resolving — prevents flash to login
-  if (loading) {
+  if (isFirstLoad) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <div className="flex min-h-screen w-full">

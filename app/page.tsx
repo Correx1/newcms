@@ -55,13 +55,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8 md:p-8">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-6 md:p-6">
     
 
       <div className="w-full max-w-sm sm:max-w-md animate-in fade-in zoom-in duration-500 flex flex-col items-center">
         
         <div className="text-center mb-6">
-          <Image src="/logo.png" alt="Agency CRM Logo" width={100} height={100} className="w-16 h-16 object-contain mx-auto mb-4" />
+          <Image src="/logo.png" alt="Agency CRM Logo" width={120} height={120} className="w-24 h-24 object-contain mx-auto mb-4" />
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome back</h1>
           <p className="text-muted-foreground mt-2 text-sm md:text-base">Sign in to your secure portal</p>
         </div>
@@ -137,7 +137,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          By signing in, you agree to our Terms of Service and Privacy Policy. Securely encrypted by Supabase.
+          By signing in, you agree to our Terms of Service and Privacy Policy. Securely encrypted.
         </p>
       </div>
     </div>

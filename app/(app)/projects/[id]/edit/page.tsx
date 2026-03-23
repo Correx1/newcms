@@ -67,7 +67,7 @@ export default function EditProjectPage() {
 
   useEffect(() => {
     let mounted = true
-    if (user?.id) fetchDependencies()
+    fetchDependencies()
     return () => { mounted = false }
   }, [user?.id, projectId])
 
@@ -94,8 +94,17 @@ export default function EditProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!clientId) {
-      toast.error("Please select a client.")
+    // Field-by-field validation with precise toast messages
+    if (!title.trim()) {
+      toast.error("Project title is required.", { description: "Give the project a clear name before saving." })
+      return
+    }
+    if (!details.trim()) {
+      toast.error("Overview details are required.", { description: "Describe what this project involves." })
+      return
+    }
+    if (!deliverables.trim()) {
+      toast.error("Deliverables are required.", { description: "List what will be delivered at the end of the project." })
       return
     }
 
@@ -123,7 +132,7 @@ export default function EditProjectPage() {
       deadline: deadline || null,
       price: price || null,
       status,
-      client_id: clientId,
+      client_id: clientId || null,
       files: combinedFiles
     }
 
@@ -196,7 +205,6 @@ export default function EditProjectPage() {
                   id="title" 
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  required 
                   className="h-11 bg-background text-base shadow-sm focus-visible:ring-1" 
                 />
               </div>
@@ -210,7 +218,6 @@ export default function EditProjectPage() {
                   value={details}
                   onChange={e => setDetails(e.target.value)}
                   className="flex min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 shadow-sm"
-                  required
                 />
               </div>
 
@@ -223,7 +230,6 @@ export default function EditProjectPage() {
                   value={deliverables}
                   onChange={e => setDeliverables(e.target.value)}
                   className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 shadow-sm font-mono"
-                  required
                 />
               </div>
             </CardContent>
@@ -296,9 +302,9 @@ export default function EditProjectPage() {
               
               <div className="space-y-2.5">
                 <Label htmlFor="client" className="text-sm font-semibold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" /> Client
+                  <Building2 className="h-4 w-4 text-muted-foreground" /> Client <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
-                <Select required value={clientId} onValueChange={(val) => setClientId(val || "")}>
+                <Select value={clientId} onValueChange={(val) => setClientId(val || "")}>
                   <SelectTrigger className="min-h-[44px] h-auto py-2 bg-background transition-colors focus:ring-1 shadow-sm [&>span]:whitespace-normal [&>span]:text-left [&>span]:break-words">
                     {clientId ? clients.find(c => c.id === clientId)?.company || clients.find(c => c.id === clientId)?.name : <span className="text-muted-foreground">Select a client...</span>}
                   </SelectTrigger>
@@ -362,7 +368,7 @@ export default function EditProjectPage() {
 
               <div className="space-y-2.5">
                 <Label htmlFor="deadline" className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" /> Deadline
+                  <Calendar className="h-4 w-4 text-muted-foreground" /> Deadline <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <Input 
                   id="deadline" 
@@ -375,7 +381,7 @@ export default function EditProjectPage() {
 
               <div className="space-y-2.5">
                 <Label htmlFor="price" className="text-sm font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /> Project Value
+                  <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /> Project Value <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-3 text-muted-foreground/70 font-semibold">$</span>

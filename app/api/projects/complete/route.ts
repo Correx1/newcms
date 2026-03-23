@@ -75,8 +75,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // 4. Update the project — use admin client so RLS doesn't interfere
-    const { error: updateError } = await admin
+    // 4. Update the project using the standard authenticated client.
+    // We MUST use the regular client so `auth.uid()` is populated in the database.
+    // If the admin client is used, auth.uid() is null, causing the notification
+    // trigger to format a NULL message and crash. Staff have RLS to update assigned projects anyway.
+    const { error: updateError } = await supabase
       .from('projects')
       .update({
         status: 'completed',

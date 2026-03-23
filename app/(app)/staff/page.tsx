@@ -80,10 +80,14 @@ export default function StaffPage() {
 
   const handleDeleteStaff = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this staff member?")) return
-    const { error } = await supabase.from('profiles').delete().eq('id', id)
-    if (error) {
-      toast.error("Failed to delete staff member")
-      console.error(error)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+    })
+    
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({}))
+      toast.error(error || "Failed to delete staff member")
+      console.error("Delete staff error:", error)
     } else {
       toast.success("Staff member deleted successfully")
       setStaffList(prev => prev.filter(s => s.id !== id))
@@ -116,7 +120,7 @@ export default function StaffPage() {
     if (error) {
       toast.error("Role update locked by security policy")
     } else {
-      toast.success("Native Profile structure mutated globally")
+      toast.success("Role updated successfully")
       setStaffList(prev => prev.map(s => s.id === editStaff.id ? { ...s, ...editFormData } : s))
       setEditStaff(null)
     }

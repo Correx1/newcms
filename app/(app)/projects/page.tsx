@@ -61,7 +61,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     let mounted = true
-    if (user?.id) fetchProjects()
+    fetchProjects()
     return () => { mounted = false }
   }, [user?.id])
 

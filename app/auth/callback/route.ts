@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 
     if (!error) {
       // For pure magic links used as sign-up, send to setup-password
-      const isSignup = type === 'signup' || type === 'magiclink' || type === 'email'
+      const isSignup = type === 'signup' || type === 'magiclink' || type === 'email' || type === 'invite' || type === 'recovery'
       const destination = next !== '/'
         ? next
         : isSignup ? '/setup-password' : '/'

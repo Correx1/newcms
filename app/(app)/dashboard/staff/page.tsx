@@ -294,7 +294,7 @@ export default function StaffDashboard() {
           <DialogHeader>
             <DialogTitle>Complete Project</DialogTitle>
             <DialogDescription>
-              Commit the database tracking array natively storing explicit physical URL downloads tracking Vault drops cleanly.
+              Enter project completion detailes, attached photos where neccessary  
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -317,13 +317,13 @@ export default function StaffDashboard() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Final Deliverables (Auto Secure Vault Drop)</Label>
+              <Label>Final Deliverables (Optional)</Label>
               <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground bg-muted/10 relative">
                 <Input type="file" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => {
                   if (e.target.files) setCompletionFiles([...completionFiles, ...Array.from(e.target.files)])
                 }} />
                 <Upload className="h-8 w-8 mb-2 opacity-70" />
-                <p className="text-sm font-medium">Click or drag files to trigger Storage array</p>
+                <p className="text-sm font-medium">Click or drag photos</p>
                 {completionFiles.length > 0 && (
                   <div className="mt-4 w-full space-y-2 text-left z-20 relative">
                      <div className="max-h-[120px] overflow-y-auto space-y-1.5 pr-2">
@@ -344,7 +344,7 @@ export default function StaffDashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCompleteModalOpen(false)} disabled={submitting}>Cancel</Button>
             <Button disabled={!completionNotes.trim() || submitting} onClick={submitCompletion}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Commit Array"}
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit"}
             </Button>
           </DialogFooter>
         </DialogContent>

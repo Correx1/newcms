@@ -42,9 +42,9 @@ export default function StaffProfilePage() {
       }
     }
 
-    if (user?.id) fetchStaffDetails()
+    fetchStaffDetails()
     return () => { mounted = false }
-  }, [user?.id, staffId])
+  }, [staffId])
 
   if (loading) return <DetailSkeleton />
 

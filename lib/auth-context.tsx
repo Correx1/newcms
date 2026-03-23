@@ -111,6 +111,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ── Has a session: INITIAL_SESSION | SIGNED_IN | TOKEN_REFRESHED ──────
         if (session?.user) {
           setHasSession(true)
+
+          // When the user is on /setup-password, skip ALL profile fetching and
+          // redirects in this handler. fetchProfile() running concurrently with
+          // updateUser() steals the Supabase Web Lock → updateUser() hangs.
+          // The page owns its own flow completely; we just confirm there's a session.
+          if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") {
+            const onSetupPage = typeof window !== 'undefined' &&
+              window.location.pathname === '/setup-password'
+            if (onSetupPage) {
+              if (mounted) setLoading(false)
+              return
+            }
+          }
+
           const { id, email } = session.user
 
           let result = await fetchProfile(id, email ?? "")
@@ -131,18 +145,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
 
             if (event === "SIGNED_IN") {
-              // Skip redirect if the user is actively setting their password —
-              // the setup-password page controls its own redirect after updateUser().
-              const onSetupPage = typeof window !== 'undefined' &&
-                window.location.pathname === '/setup-password'
-              if (!onSetupPage) {
-                // Active sign-in: push to the correct dashboard
-                if (mapped) {
-                  router.push(dashboardPath(mapped.role!))
-                } else if (result !== 'error') {
-                  // Profile truly missing and couldn't be created
-                  router.push("/setup-password")
-                }
+              if (mapped) {
+                router.push(dashboardPath(mapped.role!))
+              } else if (result !== 'error') {
+                router.push("/setup-password")
               }
             } else if (event === "INITIAL_SESSION" && mapped) {
               // Page refresh: if the user landed on the login page, send them home

@@ -21,13 +21,22 @@ export default function SetupPasswordPage() {
   const [errorMsg, setErrorMsg] = useState("")
   const [success, setSuccess] = useState(false)
 
-  // Guard: only redirect to login when there is genuinely no session.
-  // PASSWORD_RECOVERY sessions are valid here — don't boot the user.
+  const [sessionReady, setSessionReady] = useState(false)
+
+  // Wait for Supabase to initialize the session from the URL hash or cookie.
+  // getSession() fires immediately before hash tokens are parsed → false null.
+  // onAuthStateChange is the correct way to know when a session is truly ready.
   useEffect(() => {
-    supabase.auth.getSession().then((res: { data: { session: any } }) => {
-      const session = res.data.session
-      if (!session) router.replace("/")
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
+        // Session established from the invite/recovery link — allow form
+        setSessionReady(true)
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        // No session and no hash to bootstrap from — send to login
+        router.replace("/")
+      }
     })
+    return () => subscription.unsubscribe()
   }, [supabase, router])
 
   const handleSetup = async (e: React.FormEvent) => {
@@ -99,12 +108,12 @@ export default function SetupPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8 md:p-8">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-6 md:p-6">
  
 
       <div className="w-full max-w-sm sm:max-w-md animate-in fade-in zoom-in duration-500 flex flex-col items-center">
         <div className="text-center mb-6">
-          <Image src="/logo.png" alt="Agency CRM Logo" width={64} height={64} className="w-16 h-16 object-contain mx-auto mb-4" />
+          <Image src="/logo.png" alt="Agency CRM Logo" width={120} height={120} className="w-24 h-24 object-contain mx-auto mb-4" />
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Set up your password</h1>
           <p className="text-muted-foreground mt-2 text-sm md:text-base">Please choose a strong password</p>
         </div>
@@ -152,8 +161,8 @@ export default function SetupPasswordPage() {
                     />
                   </div>
                   <div className="pt-2">
-                    <Button type="submit" className="w-full text-base h-11" disabled={loading}>
-                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Password"}
+                    <Button type="submit" className="w-full text-base h-11" disabled={loading || !sessionReady}>
+                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : !sessionReady ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Initializing…</> : "Save Password"}
                     </Button>
                   </div>
                 </>

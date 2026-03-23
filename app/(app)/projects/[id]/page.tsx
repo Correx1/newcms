@@ -61,7 +61,7 @@ export default function ProjectDetailsPage() {
 
   useEffect(() => {
     let mounted = true
-    if (user?.id) fetchProject()
+    fetchProject()
     return () => { mounted = false }
   }, [user?.id, projectId])
 
@@ -498,9 +498,9 @@ export default function ProjectDetailsPage() {
       <Dialog open={completeModalOpen} onOpenChange={setCompleteModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Commit Native Deliverables Array</DialogTitle>
+            <DialogTitle>Deliverables</DialogTitle>
             <DialogDescription>
-              Write the deliverables JSON strictly merging previous states safely updating Postgres payloads universally.
+              Upload details of the deliverables for this project
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -551,7 +551,7 @@ export default function ProjectDetailsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCompleteModalOpen(false)} disabled={submitting}>Cancel</Button>
             <Button disabled={!completionNotes.trim() || submitting} onClick={submitCompletion}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Commit Payload & Sync"}
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -560,14 +560,15 @@ export default function ProjectDetailsPage() {
       <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request Structural Revisions</DialogTitle>
+            <DialogTitle>Request Revisions</DialogTitle>
             <DialogDescription>
-               Bounce project back into `Active` state explicitly flagging parameters triggering webhook drops for assigned execution blocks natively over Client Feedback strings.
+                Please clearly state your reasons and modification required. 
+Ensure its within the scope of the project. 
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Feedback String <span className="text-destructive">*</span></Label>
+              <Label>Details <span className="text-destructive">*</span></Label>
               <textarea 
                 className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Declare failure parameters..."
@@ -577,8 +578,8 @@ export default function ProjectDetailsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectModalOpen(false)}>Cancel Drop</Button>
-            <Button variant="destructive" disabled={!feedbackNotes.trim()} onClick={submitRejection}>Execute Rejection Webhook</Button>
+            <Button variant="outline" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={!feedbackNotes.trim()} onClick={submitRejection}>Submit</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
