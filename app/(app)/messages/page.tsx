@@ -3,6 +3,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
+import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -57,7 +58,6 @@ export default function MessagesPage() {
   // Edit state
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editingBody, setEditingBody] = useState("")
-  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
 
   // New conversation modal
   const [newConvOpen, setNewConvOpen] = useState(false)
@@ -311,9 +311,12 @@ export default function MessagesPage() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-0 overflow-hidden rounded-xl border border-border/50 shadow-sm bg-background">
+    <div className="flex flex-col sm:flex-row h-[calc(100vh-4rem)] gap-0 overflow-hidden rounded-xl border border-border/50 shadow-sm bg-background">
       {/* Sidebar */}
-      <div className="w-full sm:w-80 flex flex-col border-r border-border/50 bg-muted/10 shrink-0">
+      <div className={cn(
+        "w-full sm:w-80 flex flex-col border-border/50 bg-muted/10 shrink-0 transition-all",
+        activeConv ? "h-[35%] sm:h-auto border-b sm:border-b-0 sm:border-r" : "flex-1 sm:h-auto sm:border-r"
+      )}>
         <div className="p-4 border-b border-border/50">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -383,7 +386,10 @@ export default function MessagesPage() {
       </div>
 
       {/* Chat Thread */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={cn(
+        "flex-col overflow-hidden bg-background",
+        activeConv ? "flex flex-1" : "hidden sm:flex flex-1"
+      )}>
         {activeConv ? (
           <>
             <div className="px-5 py-3 border-b border-border/50 bg-muted/5 flex items-center gap-3 shrink-0">
@@ -414,18 +420,16 @@ export default function MessagesPage() {
                     const prevMsg = messages[i - 1]
                     const showTimestamp = !prevMsg || new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 5 * 60 * 1000
                     const isEditing = editingMsgId === msg.id
-                    const isHovered = hoveredMsgId === msg.id
-
                     return (
-                      <div key={msg.id} onMouseEnter={() => setHoveredMsgId(msg.id)} onMouseLeave={() => setHoveredMsgId(null)}>
+                      <div key={msg.id}>
                         {showTimestamp && (
                           <div className="text-center my-3">
                             <span className="text-[10px] text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-full">{formatTime(msg.created_at)}</span>
                           </div>
                         )}
                         <div className={cn("flex items-end gap-1.5", isMe ? "justify-end" : "justify-start")}>
-                          {/* Actions: shown on hover for my messages */}
-                          {isMe && !msg.is_deleted && isHovered && !isEditing && (
+                          {/* Actions: always shown for my messages */}
+                          {isMe && !msg.is_deleted && !isEditing && (
                             <div className="flex items-center gap-1 mb-1">
                               <button onClick={() => { setEditingMsgId(msg.id); setEditingBody(msg.body) }}
                                 className="h-6 w-6 rounded-full bg-muted/60 border border-border/40 flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-colors"
@@ -443,11 +447,11 @@ export default function MessagesPage() {
                           <div className={cn("flex flex-col gap-0.5", isMe ? "items-end" : "items-start")}>
                             {/* Project tag */}
                             {msg.project && !msg.is_deleted && (
-                              <div className={cn("flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                              <Link href={`/projects/${msg.project_id}`} className={cn("flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border hover:underline transition-all",
                                 isMe ? "bg-primary/5 border-primary/20 text-primary" : "bg-muted/40 border-border/40 text-muted-foreground")}>
                                 <FolderKanban className="h-2.5 w-2.5" />
                                 {msg.project.title}
-                              </div>
+                              </Link>
                             )}
 
                             {isEditing ? (
@@ -482,7 +486,7 @@ export default function MessagesPage() {
                           </div>
 
                           {/* Actions for received messages (delete only for admin) */}
-                          {!isMe && !msg.is_deleted && isHovered && user?.role === 'admin' && (
+                          {!isMe && !msg.is_deleted && user?.role === 'admin' && (
                             <div className="flex items-center gap-1 mb-1">
                               <button onClick={() => deleteMessage(msg.id)}
                                 className="h-6 w-6 rounded-full bg-muted/60 border border-border/40 flex items-center justify-center hover:bg-destructive/10 hover:text-destructive transition-colors"

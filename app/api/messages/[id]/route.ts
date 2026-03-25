@@ -42,7 +42,7 @@ export async function GET(
     // Fetch messages
     const { data: messages } = await admin
       .from('messages')
-      .select('id, sender_id, body, is_read, created_at, profiles!messages_sender_id_fkey(name, role)')
+      .select('id, sender_id, body, is_read, created_at, project_id, is_deleted, edited_at, profiles!messages_sender_id_fkey(name, role)')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
 
