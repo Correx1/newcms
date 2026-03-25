@@ -194,19 +194,22 @@ export default function StaffDashboard() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Select value={project.status} onValueChange={(val) => handleStatusChange(project.id, val)}>
-                          <SelectTrigger className="w-[125px] h-8 text-xs font-medium capitalize">
+                        {project.status === "approved" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border border-indigo-500/20 bg-indigo-500/10 text-indigo-500 capitalize">
                             {project.status}
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            {project.status === "approved" && (
-                              <SelectItem value="approved">Approved</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                          </span>
+                        ) : (
+                          <Select value={project.status} onValueChange={(val) => handleStatusChange(project.id, val)}>
+                            <SelectTrigger className="w-[125px] h-8 text-xs font-medium capitalize">
+                              {project.status}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -239,11 +242,15 @@ export default function StaffDashboard() {
                           {getStatusBadge(project.status)}
                         </div>
                       </div>
-                      {project.deadline && (
+                      {(project.status === "approved" || project.status === "completed") ? (
+                        <Badge className="whitespace-nowrap ml-2 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20">
+                          Completed
+                        </Badge>
+                      ) : project.deadline ? (
                         <Badge variant={daysLeft < 3 ? "destructive" : "secondary"} className="whitespace-nowrap ml-2">
                           {daysLeft < 0 ? "Overdue" : `${daysLeft} days`}
                         </Badge>
-                      )}
+                      ) : null}
                     </div>
                   )
                 }) : (

@@ -125,7 +125,7 @@ export default function ClientsPage() {
         {user?.role === "admin" && (
           <Button className="shadow-sm shadow-primary/20 w-full sm:w-auto" asChild>
             <Link href="/clients/new">
-              <Plus className="mr-2 h-4 w-4" /> Invite New Client
+              <Plus className="mr-2 h-4 w-4" /> Add New Client
             </Link>
           </Button>
         )}

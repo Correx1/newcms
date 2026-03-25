@@ -36,13 +36,20 @@ export default function ProjectDetailsPage() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [feedbackNotes, setFeedbackNotes] = useState("")
 
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState("")
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [paymentNotes, setPaymentNotes] = useState("")
+  const [submittingPayment, setSubmittingPayment] = useState(false)
+
   const fetchProject = async () => {
     const { data: pData } = await supabase
       .from('projects')
       .select(`
         *,
         client:profiles!projects_client_id_fkey(name, company),
-        assignments:project_assignments(profiles(id, name, role))
+        assignments:project_assignments(*, profiles(id, name, role), staff_payment_logs(id, amount, payment_date, notes)),
+        payment_logs(id, amount, payment_date, notes, recorded_by:profiles(name))
       `)
       .eq('id', projectId)
       .single()
@@ -138,7 +145,6 @@ export default function ProjectDetailsPage() {
       setProject({
         ...project,
         status: 'completed',
-        client_feedback: null,
         deliverables_summary: completionNotes,
         deliverables_links: compiledLinks,
         deliverables_files: allDeliverableFiles,
@@ -152,10 +158,15 @@ export default function ProjectDetailsPage() {
 
   const submitRejection = async () => {
     // Keep all deliverables intact — just flip status to 'rejected' and record feedback
-    setProject({ ...project, status: "rejected", client_feedback: feedbackNotes })
+    const timestamp = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const prefix = user?.role === "admin" ? "Admin Request" : "Client Revision"
+    const newEntry = `[${timestamp}] ${prefix}:\n${feedbackNotes}`
+    const updatedFeedback = project.client_feedback ? `${newEntry}\n\n---\n\n${project.client_feedback}` : newEntry
+
+    setProject({ ...project, status: "rejected", client_feedback: updatedFeedback })
     const { error } = await supabase
       .from('projects')
-      .update({ status: "rejected", client_feedback: feedbackNotes })
+      .update({ status: "rejected", client_feedback: updatedFeedback })
       .eq('id', project.id)
     
     if (error) toast.error("Failed to request revision")
@@ -163,6 +174,31 @@ export default function ProjectDetailsPage() {
     
     setRejectModalOpen(false)
     setFeedbackNotes("")
+  }
+
+  const submitPayment = async () => {
+    setSubmittingPayment(true)
+    const res = await fetch(`/api/projects/${project.id}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: paymentAmount,
+        payment_date: paymentDate,
+        notes: paymentNotes
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      toast.error(err.error || "Failed to log payment")
+    } else {
+      toast.success("Payment recorded successfully")
+      setPaymentModalOpen(false)
+      setPaymentAmount("")
+      setPaymentNotes("")
+      fetchProject() // reload to get updated logs and amount_paid
+    }
+    setSubmittingPayment(false)
   }
 
   const deleteCompletionFile = async (idxFile: number) => {
@@ -194,6 +230,7 @@ export default function ProjectDetailsPage() {
   }
 
   const assignedProfiles = project.assignments?.map((a: any) => a.profiles).filter(Boolean) || []
+  const currentUserAssignment = project.assignments?.find((a: any) => a.user_id === user?.id)
 
   return (
     <div className="space-y-6 pb-12 w-full">
@@ -205,7 +242,7 @@ export default function ProjectDetailsPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{project.title}</h1>
-              {(user?.role === "admin" || user?.role === "staff") ? (
+              {(user?.role === "admin" || (user?.role === "staff" && project.status !== "approved")) ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Badge variant="outline" className={`capitalize gap-1.5 pl-1.5 mb-1 cursor-pointer transition-colors ${getStatusColor(project.status)}`}>
@@ -299,30 +336,154 @@ export default function ProjectDetailsPage() {
               </div>
 
               <div className="space-y-1 pt-2 border-t border-border/50">
-                <span className="text-xs text-muted-foreground uppercase font-semibold">Budget / Price</span>
-                <div className="flex items-center font-medium text-emerald-600 dark:text-emerald-400">
-                  <DollarSign className="mr-1.5 h-4 w-4" />
-                  {project.price || "Custom Price"}
-                </div>
+                {user?.role === "staff" ? (
+                  // STAFF VIEW: ONLY SHOW THEIR OWN EARNINGS
+                  <div className="space-y-2 mt-2">
+                    <span className="text-xs text-muted-foreground uppercase font-semibold">My Earnings</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Expected Pay:</span>
+                      <span className="font-semibold text-foreground">${Number(currentUserAssignment?.earnings || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Processed:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        ${Number(currentUserAssignment?.amount_paid || 0).toLocaleString()}
+                      </span>
+                    </div>
+                    {Number(currentUserAssignment?.earnings || 0) > 0 && (
+                      <div className="flex justify-between items-center text-sm border-t border-border/50 pt-1.5 mt-1.5">
+                        <span className="text-muted-foreground font-semibold">Balance:</span>
+                        <span className="font-bold text-amber-500">
+                          ${Math.max(0, Number(currentUserAssignment?.earnings || 0) - Number(currentUserAssignment?.amount_paid || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {currentUserAssignment?.staff_payment_logs && currentUserAssignment.staff_payment_logs.length > 0 && (
+                       <div className="mt-4 pt-3 border-t border-border/50 space-y-2">
+                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-2">My Payment Ledger</span>
+                         <div className="max-h-32 overflow-y-auto pr-2 space-y-1.5">
+                           {currentUserAssignment.staff_payment_logs.sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).map((log: any) => (
+                             <div key={log.id} className="flex flex-col gap-0.5 border-b border-border/30 pb-1.5 last:border-0 last:pb-0">
+                               <div className="flex justify-between items-center">
+                                 <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400">+ ${Number(log.amount).toLocaleString()}</span>
+                                 <span className="text-[9px] font-medium text-muted-foreground">{new Date(log.payment_date).toLocaleDateString()}</span>
+                               </div>
+                               {log.notes && <p className="text-[10px] text-muted-foreground/80 leading-snug truncate" title={log.notes}>{log.notes}</p>}
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                    )}
+                  </div>
+                ) : (
+                  // ADMIN VIEW: SHOW GLOBAL BUDGET
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground uppercase font-semibold">Global Financials</span>
+                      {user?.role === "admin" && (
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-primary bg-primary/10 hover:bg-primary/20" onClick={() => setPaymentModalOpen(true)}>
+                          Log Payment
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-2 mt-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Budget:</span>
+                        <span className="font-semibold text-foreground">{project.price || "Custom"}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Paid:</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          ${Number(project.amount_paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {parseFloat((project.price || "0").replace(/[^0-9.]/g, '')) > 0 && (
+                        <div className="flex justify-between items-center text-sm border-t border-border/50 pt-1.5 mt-1.5">
+                          <span className="text-muted-foreground font-semibold">Balance:</span>
+                          <span className="font-bold text-destructive">
+                            ${Math.max(0, parseFloat((project.price || "0").replace(/[^0-9.]/g, '')) - Number(project.amount_paid || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {currentUserAssignment && Number(currentUserAssignment?.earnings || 0) > 0 && (
+                        <div className="mt-4 pt-3 border-t border-border/50">
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-semibold block mb-2">My Admin Earnings</span>
+                          <div className="flex justify-between items-center text-sm mt-2">
+                            <span className="text-muted-foreground">Expected Pay:</span>
+                            <span className="font-semibold">${Number(currentUserAssignment.earnings).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-emerald-600/80">Processed:</span>
+                            <span className="font-bold text-emerald-600">${Number(currentUserAssignment.amount_paid).toLocaleString()}</span>
+                          </div>
+                          
+                          {currentUserAssignment?.staff_payment_logs && currentUserAssignment.staff_payment_logs.length > 0 && (
+                            <div className="mt-3 bg-emerald-500/5 border border-emerald-500/10 p-2 rounded-md max-h-32 overflow-y-auto space-y-1">
+                              {currentUserAssignment.staff_payment_logs.sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).map((log: any) => (
+                                <div key={log.id} className="flex flex-col gap-0.5 border-b border-emerald-500/10 pb-1 last:border-0 last:pb-0">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-bold text-[11px] text-emerald-600 dark:text-emerald-400">+ ${Number(log.amount).toLocaleString()}</span>
+                                    <span className="text-[9px] font-medium text-muted-foreground">{new Date(log.payment_date).toLocaleDateString()}</span>
+                                  </div>
+                                  {log.notes && <p className="text-[9px] text-emerald-700/60 dark:text-emerald-300/60 truncate">{log.notes}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
               
               <div className="space-y-2 pt-2 border-t border-border/50">
                 <span className="text-xs text-muted-foreground uppercase font-semibold">Assigned Staff</span>
                 <div className="flex flex-col gap-2">
-                  {assignedProfiles.length > 0 ? assignedProfiles.map((s: any) => (
+                  {project.assignments?.length > 0 ? project.assignments.map((a: any) => {
+                    const s = a.profiles;
+                    if(!s) return null;
+                    return (
                     <div key={s.id} className="flex items-center justify-between text-sm font-medium bg-muted/40 p-2 rounded-md border border-border/50">
                       <div className="flex items-center">
                         <User className="mr-2 h-4 w-4 text-muted-foreground" />
                         {s.name}
                       </div>
+                      {user?.role === "admin" && Number(a.earnings || 0) > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10.5px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors cursor-default" title="Internal staff expected pay">
+                          ${Number(a.earnings).toLocaleString()}
+                        </span>
+                      )}
                     </div>
-                  )) : (
-                    <span className="text-sm text-muted-foreground italic">Unassigned Globally</span>
+                  )}) : (
+                    <span className="text-sm text-muted-foreground italic"></span>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {user?.role !== "staff" && project.payment_logs && project.payment_logs.length > 0 && (
+             <Card className="shadow-sm border-border/50">
+              <CardHeader className="pb-3 border-b border-border/50 bg-muted/5">
+                <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground"><Activity className="h-4 w-4" /> Payment Ledger</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                {project.payment_logs.sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).map((log: any) => (
+                   <div key={log.id} className="flex flex-col gap-1 border-b border-border/50 pb-3 last:border-0 last:pb-0">
+                     <div className="flex justify-between items-center">
+                       <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">+ ${Number(log.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                       <span className="text-[11px] font-medium text-muted-foreground">{new Date(log.payment_date).toLocaleDateString()}</span>
+                     </div>
+                     {log.notes && <p className="text-xs text-muted-foreground/80 leading-relaxed">{log.notes}</p>}
+                     <p className="text-[9px] text-muted-foreground/50 text-right mt-0.5 font-medium uppercase tracking-widest">Logged by {log.recorded_by?.name || 'Admin'}</p>
+                   </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-3 border-b border-border/50 flex flex-row items-center justify-between">
@@ -395,10 +556,10 @@ export default function ProjectDetailsPage() {
               </CardDescription>
             </div>
             
-            {project.status === "completed" && user?.role === "client" && (
+            {project.status === "completed" && (user?.role === "client" || user?.role === "admin") && (
               <div className="flex gap-2 shrink-0">
                 <Button variant="outline" size="sm" onClick={() => setRejectModalOpen(true)} className="border-destructive/20 text-destructive hover:bg-destructive/10">
-                  <AlertCircle className="h-4 w-4 mr-2" /> Request Revision
+                  <AlertCircle className="h-4 w-4 mr-2" /> {user?.role === "admin" ? "Request Internal Revision" : "Request Revision"}
                 </Button>
                 <Button size="sm" onClick={() => handleStatusChange("approved")} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
                   <ThumbsUp className="h-4 w-4 mr-2" /> Approve Project
@@ -477,19 +638,26 @@ export default function ProjectDetailsPage() {
         </Card>
       )}
 
-      {project.client_feedback && project.status === "rejected" && (
-        <Card className="shadow-sm mt-6 mb-8 border-rose-500/30 bg-rose-500/5 animate-in slide-in-from-bottom-2 fade-in relative overflow-hidden">
-          <div className="absolute right-0 top-0 bottom-0 w-2 bg-rose-500"></div>
-          <CardHeader className="pb-3 border-b border-rose-500/20">
-            <CardTitle className="text-rose-600 dark:text-rose-400 flex items-center gap-2 text-base font-bold">
-              <XCircle className="h-5 w-5" /> Client Revision Request
+      {project.client_feedback && (
+        <Card className={`shadow-sm mt-6 mb-8 relative overflow-hidden animate-in slide-in-from-bottom-2 fade-in ${project.status === 'rejected' ? 'border-rose-500/30 bg-rose-500/5' : 'border-muted-foreground/20 bg-muted/5'}`}>
+          <div className={`absolute right-0 top-0 bottom-0 w-2 ${project.status === 'rejected' ? 'bg-rose-500' : 'bg-muted-foreground/30'}`}></div>
+          <CardHeader className={`pb-3 border-b ${project.status === 'rejected' ? 'border-rose-500/20' : 'border-border/50'}`}>
+            <CardTitle className={`flex items-center gap-2 text-base font-bold ${project.status === 'rejected' ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+              {project.status === 'rejected' ? <XCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />} 
+              {project.status === 'rejected' ? 'Revision Requested' : 'Feedback History'}
             </CardTitle>
-            <CardDescription className="text-rose-500/80">
-              The client reviewed the delivery and requested changes. Address the feedback below, then resubmit.
+            <CardDescription className={project.status === 'rejected' ? 'text-rose-500/80' : 'text-muted-foreground/70'}>
+              {project.status === 'rejected' ? 'The delivery requires changes. Address the feedback below, then resubmit.' : 'Log of previous feedback and revision requests for this project.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
-            <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{project.client_feedback}</p>
+            <div className="space-y-4">
+              {project.client_feedback.split('\n\n---\n\n').map((fb: string, i: number) => (
+                <div key={i} className={`p-4 rounded-lg bg-background border ${project.status === 'rejected' && i === 0 ? 'border-rose-500/30 shadow-sm' : 'border-border/50'}`}>
+                  <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{fb}</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -580,6 +748,53 @@ Ensure its within the scope of the project.
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
             <Button variant="destructive" disabled={!feedbackNotes.trim()} onClick={submitRejection}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log Payment</DialogTitle>
+            <DialogDescription>
+              Record a new incoming payment for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Amount Received ($) <span className="text-destructive">*</span></Label>
+              <Input 
+                type="number" 
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="e.g. 500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date of Payment</Label>
+              <Input 
+                type="date" 
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Internal Notes (Optional)</Label>
+              <textarea 
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Paid via Wire Transfer..."
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentModalOpen(false)} disabled={submittingPayment}>Cancel</Button>
+            <Button disabled={!paymentAmount || isNaN(Number(paymentAmount)) || submittingPayment} onClick={submitPayment}>
+              {submittingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Payment"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

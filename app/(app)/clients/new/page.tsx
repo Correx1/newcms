@@ -10,6 +10,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { Switch } from "@/components/ui/switch"
 
 export default function NewClientPage() {
   const { user } = useAuth()
@@ -19,6 +20,7 @@ export default function NewClientPage() {
   const [email, setEmail]     = useState("")
   const [phone, setPhone]     = useState("")
   const [company, setCompany] = useState("")
+  const [sendInvite, setSendInvite] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   if (user?.role !== "admin") {
@@ -41,11 +43,12 @@ export default function NewClientPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          email,
+          email: email.trim() || undefined,
           name,
           role: "client",
           phone:   phone   || undefined,
           company: company || undefined,
+          sendInvite
         }),
       })
 
@@ -56,7 +59,11 @@ export default function NewClientPage() {
         return
       }
 
-      toast.success(`Invite sent to ${email}! They'll receive an email to set their password.`)
+      if (sendInvite) {
+        toast.success(`Invite sent to ${email}! They'll receive an email to set their password.`)
+      } else {
+        toast.success(`Client ${name} added successfully without an invite.`)
+      }
       router.push("/clients")
     } catch {
       toast.error("Network error — please try again.")
@@ -115,12 +122,12 @@ export default function NewClientPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2 sm:col-span-1">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Email Address {sendInvite ? "" : <span className="text-muted-foreground font-normal">(Optional)</span>}</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="jane@acme.com"
-                  required
+                  required={sendInvite}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="bg-background/50"
@@ -140,7 +147,19 @@ export default function NewClientPage() {
             </div>
           </CardContent>
 
-          <CardFooter className="flex justify-end gap-2 border-t border-border/50 pt-4">
+          <div className="px-6 py-4 border-t border-border/50 bg-muted/10 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-bold cursor-pointer" htmlFor="send-invite">Send Invite Email Now?</Label>
+              <p className="text-[11px] text-muted-foreground font-medium">If turned off, you can add an email and send the invite later.</p>
+            </div>
+            <Switch
+              id="send-invite"
+              checked={sendInvite}
+              onCheckedChange={setSendInvite}
+            />
+          </div>
+
+          <CardFooter className="flex justify-end gap-2 border-t border-border/50 pt-4 pb-4">
             <Button variant="outline" type="button" asChild disabled={submitting}>
               <Link href="/clients">Cancel</Link>
             </Button>

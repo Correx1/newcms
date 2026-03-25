@@ -4,19 +4,33 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Building2, Mail, Phone, FolderKanban, CheckCircle2, Clock, Activity } from "lucide-react"
+import { ArrowLeft, Building2, Mail, Phone, FolderKanban, CheckCircle2, Clock, Activity, Settings, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { DetailSkeleton } from "@/components/ui/page-skeleton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 export default function ClientProfilePage() {
   const params = useParams()
   const router = useRouter()
   const clientId = params?.id as string
+  const { user } = useAuth()
   
   const [loading, setLoading] = useState(true)
   const [clientProfile, setClientProfile] = useState<any>(null)
+  
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editPhone, setEditPhone] = useState("")
+  const [editCompany, setEditCompany] = useState("")
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [sendingInvite, setSendingInvite] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -31,6 +45,15 @@ export default function ClientProfilePage() {
           const json = await res.json()
           if (mounted && json.profile) {
             setClientProfile(json.profile)
+            setEditName(json.profile.name || "")
+            setEditPhone(json.profile.phone || "")
+            setEditCompany(json.profile.company || "")
+            const rawEmail = json.profile.email || ""
+            if (rawEmail.includes('@noplincms.local') || rawEmail.startsWith('silent_')) {
+              setEditEmail("")
+            } else {
+              setEditEmail(rawEmail)
+            }
           }
         }
       } catch (err) {
@@ -70,18 +93,78 @@ export default function ClientProfilePage() {
     }
   }
 
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          email: editEmail,
+          phone: editPhone,
+          company: editCompany
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success("Client metadata synchronized successfully")
+      setClientProfile({ ...clientProfile, name: editName, email: editEmail, phone: editPhone, company: editCompany })
+      setIsEditDialogOpen(false)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to edit client")
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleSendInvite = async () => {
+    if (!clientProfile.email || clientProfile.email.includes('@noplincms.local') || clientProfile.email.startsWith('silent_')) {
+      toast.error("Please edit the client to assign a real email address before dispatching invites.", { duration: 5000 })
+      return
+    }
+    
+    setSendingInvite(true)
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/invite`, {
+        method: "POST",
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success("Password setup invite dispatched securely.")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to dispatch invite")
+    } finally {
+      setSendingInvite(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Exit Client Vector</span>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{clientProfile.name || "Not provided"}</h1>
-            <p className="text-muted-foreground mt-1 text-sm font-semibold">Client Profile</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Exit Client Vector</span>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">{clientProfile.name || "Not provided"}</h1>
+              <p className="text-muted-foreground mt-1 text-sm font-semibold">Client Profile</p>
+            </div>
           </div>
+          {user?.role === "admin" && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:ml-auto">
+              <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)} className="shadow-sm font-bold bg-background text-foreground h-9">
+                <Settings className="mr-2 h-4 w-4" /> Edit Details
+              </Button>
+              <Button size="sm" onClick={handleSendInvite} disabled={sendingInvite} className="shadow-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white border-none h-9">
+                {sendingInvite ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                {clientProfile.email?.includes('@noplincms.local') || clientProfile.email?.startsWith('silent_') ? "Send Original Invite" : "Resend Invite"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -186,6 +269,41 @@ export default function ClientProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {user?.role === "admin" && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={handleEditSubmit}>
+              <DialogHeader>
+                <DialogTitle>Edit Client Constraints</DialogTitle>
+                <CardDescription>Update structural database maps and email bindings directly.</CardDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-6">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="editName" className="text-right font-semibold">Name</Label>
+                  <Input id="editName" value={editName} onChange={(e) => setEditName(e.target.value)} className="col-span-3 font-medium bg-muted/20" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="editEmail" className="text-right font-semibold">Email</Label>
+                  <Input id="editEmail" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Must be valid to receive invites" className="col-span-3 font-medium bg-muted/20" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="editCompany" className="text-right font-semibold">Company</Label>
+                  <Input id="editCompany" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className="col-span-3 font-medium bg-muted/20" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="editPhone" className="text-right font-semibold">Phone</Label>
+                  <Input id="editPhone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="col-span-3 font-medium bg-muted/20" />
+                </div>
+              </div>
+              <DialogFooter className="border-t border-border/50 pt-4 pb-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={savingEdit} className="w-full sm:w-auto font-bold bg-muted/10">Cancel</Button>
+                <Button type="submit" disabled={savingEdit} className="w-full sm:w-auto font-bold shadow-sm">{savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

@@ -51,49 +51,94 @@ export async function POST(request: Request) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { email, name, role, phone, company, job_title } = body
+    const { email, name, role, phone, company, job_title, sendInvite = true } = body
 
-    if (!email || !name || !role) {
-      return NextResponse.json({ error: 'email, name, and role are required' }, { status: 400 })
+    if (!name || !role) {
+      return NextResponse.json({ error: 'name and role are required' }, { status: 400 })
+    }
+
+    if (sendInvite && !email) {
+      return NextResponse.json({ error: 'Email is required when sending an invite' }, { status: 400 })
     }
 
     if (!['admin', 'staff', 'client'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // 3. Use service-role admin client to invite the user
+    if (sendInvite) {
+      // Build the redirect URL: /auth/callback will exchange the token, then
+      // redirect to /setup-password where they set their password.
+      const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+      const redirectTo = `${origin}/auth/callback?next=/setup-password`
 
-    // Build the redirect URL: /auth/callback will exchange the token, then
-    // redirect to /setup-password where they set their password.
-    const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const redirectTo = `${origin}/auth/callback?next=/setup-password`
+      // inviteUserByEmail creates the auth.users row (fires our trigger → profile created)
+      // and sends the invite email with the correct redirect.
+      const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
+        email,
+        {
+          data: {
+            name,
+            role,
+            phone:     phone     || null,
+            company:   company   || null,
+            job_title: job_title || null,
+          },
+          redirectTo,
+        }
+      )
 
-    // inviteUserByEmail creates the auth.users row (fires our trigger → profile created)
-    // and sends the invite email with the correct redirect.
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: {
+      if (inviteError) {
+        console.error('[create-user] invite error:', inviteError.message)
+        return NextResponse.json({ error: inviteError.message }, { status: 400 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        userId: inviteData.user?.id,
+        message: `Invite email sent to ${email}`,
+      })
+    } else {
+      // 4. Deferred Invite Flow (Silent Creation)
+      const placeholderEmail = email?.trim() ? email.trim() : `silent_${crypto.randomUUID()}@noplincms.local`
+      const randomPassword = crypto.randomUUID() + crypto.randomUUID()
+
+      const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
+        email: placeholderEmail,
+        password: randomPassword,
+        email_confirm: true,
+        user_metadata: {
           name,
           role,
           phone:     phone     || null,
           company:   company   || null,
           job_title: job_title || null,
-        },
-        redirectTo,
+          is_placeholder_email: !email?.trim()
+        }
+      })
+
+      if (createError) {
+        console.error('[create-user] silent creation error:', createError.message)
+        return NextResponse.json({ error: createError.message }, { status: 400 })
       }
-    )
 
-    if (inviteError) {
-      console.error('[create-user] invite error:', inviteError.message)
-      return NextResponse.json({ error: inviteError.message }, { status: 400 })
+      // Explicitly override the profile email to be user-friendly if it was a ghost email
+      if (!email?.trim() && createData.user?.id) {
+        const { error: profileUpdateError } = await adminClient
+          .from('profiles')
+          .update({ email: 'No mail provided' })
+          .eq('id', createData.user.id)
+          
+        if (profileUpdateError) {
+          console.error('[create-user] failed to label profile with No mail provided:', profileUpdateError.message)
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        userId: createData.user?.id,
+        message: `User created silently without an invite.`
+      })
     }
-
-    return NextResponse.json({
-      ok: true,
-      userId: inviteData.user?.id,
-      message: `Invite email sent to ${email}`,
-    })
   } catch (err) {
     console.error('[create-user] unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

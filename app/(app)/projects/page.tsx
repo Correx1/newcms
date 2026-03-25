@@ -244,7 +244,7 @@ export default function ProjectsPage() {
                         </span>
                       </TableCell>
                       <TableCell className="py-4">
-                        {(user?.role === "admin" || user?.role === "staff") ? (
+                        {(user?.role === "admin" || (user?.role === "staff" && project.status !== "approved")) ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="outline" className={`h-8 w-[110px] justify-between px-2.5 ${getStatusColor(project.status)}`}>
@@ -283,7 +283,11 @@ export default function ProjectsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="py-4 hidden lg:table-cell">
-                        {project.deadline ? (
+                        {(project.status === "approved" || project.status === "completed") ? (
+                          <Badge className="w-fit text-xs px-2 py-0.5 whitespace-nowrap bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20">
+                            Completed
+                          </Badge>
+                        ) : project.deadline ? (
                           <div className="flex items-center gap-2">
                             <Badge variant={daysLeft < 3 ? "destructive" : "secondary"} className="w-fit text-xs px-2 py-0.5 whitespace-nowrap">
                               {daysLeft < 0 ? "Overdue" : `${daysLeft} Days Left`}

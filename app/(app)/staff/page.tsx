@@ -45,8 +45,8 @@ export default function StaffPage() {
             .filter(Boolean) || []
           return {
             ...s,
-            assignedTasks: validProjects.filter((p: any) => p.status !== 'completed'),
-            completedTasks: validProjects.filter((p: any) => p.status === 'completed')
+            assignedTasks: validProjects.filter((p: any) => p.status !== 'completed' && p.status !== 'approved'),
+            completedTasks: validProjects.filter((p: any) => p.status === 'completed' || p.status === 'approved')
           }
         })
         setStaffList(formatted)

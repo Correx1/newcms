@@ -183,7 +183,11 @@ export default function AdminDashboard() {
                             </div>
                           </TableCell>
                           <TableCell className="py-4">
-                            {project.deadline ? (
+                            {(project.status === "approved" || project.status === "completed") ? (
+                              <Badge className="w-fit text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20">
+                                Completed
+                              </Badge>
+                            ) : project.deadline ? (
                               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                                 <Badge variant={daysLeft < 3 ? "destructive" : "secondary"} className="w-fit text-xs px-2 py-0.5">
                                   {daysLeft < 0 ? "Overdue" : `${daysLeft} Days Left`}

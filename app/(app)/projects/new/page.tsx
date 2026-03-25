@@ -31,7 +31,8 @@ export default function NewProjectPage() {
   const [deliverables, setDeliverables] = useState("")
   const [deadline, setDeadline] = useState("")
   const [price, setPrice] = useState("")
-  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
+  const [amountPaid, setAmountPaid] = useState("")
+  const [selectedStaff, setSelectedStaff] = useState<{id: string, earnings: string}[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   // Fetch Clients and Staff options on Mount
@@ -57,8 +58,17 @@ export default function NewProjectPage() {
   }, [])
 
   const handleStaffToggle = (staffId: string) => {
-    setSelectedStaffIds(prev => 
-      prev.includes(staffId) ? prev.filter(id => id !== staffId) : [...prev, staffId]
+    setSelectedStaff(prev => {
+      const exists = prev.find(s => s.id === staffId)
+      if (exists) return prev.filter(s => s.id !== staffId)
+      return [...prev, { id: staffId, earnings: "" }]
+    })
+  }
+
+  const handleStaffEarningsChange = (staffId: string, value: string) => {
+    if (!/^\d*\.?\d*$/.test(value)) return;
+    setSelectedStaff(prev => 
+      prev.map(s => s.id === staffId ? { ...s, earnings: value } : s)
     )
   }
 
@@ -87,6 +97,7 @@ export default function NewProjectPage() {
       deliverables: deliverables.trim(),
       deadline: deadline || null,
       price: price || null,
+      amount_paid: amountPaid ? Number(amountPaid.replace(/[^0-9.]/g, '')) : 0,
       status,
       client_id: clientId || null
     }
@@ -122,10 +133,11 @@ export default function NewProjectPage() {
     }
 
     // Explicit Mapping for Staff Assignments
-    if (selectedStaffIds.length > 0) {
-      const bridgeInserts = selectedStaffIds.map(staffId => ({
+    if (selectedStaff.length > 0) {
+      const bridgeInserts = selectedStaff.map(staff => ({
         project_id: newProjectId,
-        user_id: staffId
+        user_id: staff.id,
+        earnings: staff.earnings ? parseFloat(staff.earnings) : 0
       }))
       await supabase.from('project_assignments').insert(bridgeInserts)
     }
@@ -287,27 +299,43 @@ export default function NewProjectPage() {
                 </Label>
                 <div className="space-y-2 p-3 border border-border/50 rounded-md bg-background shadow-sm max-h-[220px] overflow-y-auto">
                   {staffPool.length === 0 && <p className="text-center text-xs text-muted-foreground py-4">No staff members available.</p>}
-                  {staffPool.map(s => (
-                    <div key={s.id} className="flex items-start space-x-3 bg-muted/20 p-2.5 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50 group cursor-pointer" onClick={() => handleStaffToggle(s.id)}>
-                      <input 
-                        type="checkbox" 
-                        checked={selectedStaffIds.includes(s.id)}
-                        readOnly
-                        className="h-4 w-4 mt-0.5 rounded border-border text-primary focus:ring-1 focus:ring-primary accent-primary cursor-pointer" 
-                      />
-                      <Label className="flex items-start gap-3 cursor-pointer w-full">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center text-[11px] font-bold shrink-0">
-                          {s.name.charAt(0)}
+                  {staffPool.map(s => {
+                    const isSelected = selectedStaff.some(st => st.id === s.id);
+                    const staffData = selectedStaff.find(st => st.id === s.id);
+                    return (
+                    <div key={s.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded-md transition-colors border ${isSelected ? 'border-primary/50 bg-primary/5 shadow-sm' : 'border-transparent hover:border-border/50 hover:bg-muted/30 bg-muted/10'}`}>
+                      <div className="flex items-start space-x-3 group cursor-pointer flex-1 w-full" onClick={() => handleStaffToggle(s.id)}>
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          readOnly
+                          className="h-4 w-4 mt-0.5 rounded border-border text-primary focus:ring-1 focus:ring-primary accent-primary cursor-pointer" 
+                        />
+                        <Label className="flex items-start gap-3 cursor-pointer w-full">
+                          <div className={`h-8 w-8 rounded-full border flex items-center justify-center text-[11px] font-bold shrink-0 ${isSelected ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-primary/10 text-primary border-primary/20'}`}>
+                            {s.name.charAt(0)}
+                          </div>
+                          <div className="flex flex-col gap-0.5 pt-0.5">
+                            <span className="text-sm font-bold leading-none">{s.name}</span>
+                             <span className="text-muted-foreground text-xs leading-none font-medium capitalize mt-1">
+                               {s.role}
+                             </span>
+                          </div>
+                        </Label>
+                      </div>
+                      {isSelected && (
+                        <div className="relative w-full sm:w-32 animate-in fade-in slide-in-from-right-2" onClick={(e) => e.stopPropagation()}>
+                          <span className="absolute left-2.5 top-2 text-muted-foreground/70 font-semibold text-xs">$</span>
+                          <Input 
+                            value={staffData?.earnings || ""}
+                            onChange={(e) => handleStaffEarningsChange(s.id, e.target.value)}
+                            placeholder="Expected Pay"
+                            className="h-8 pl-6 text-xs bg-background shadow-sm border-primary/20 font-bold"
+                          />
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm font-bold leading-none">{s.name}</span>
-                           <span className="text-muted-foreground text-xs leading-none font-medium capitalize">
-                             {s.role}
-                           </span>
-                        </div>
-                      </Label>
+                      )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
 
@@ -353,6 +381,40 @@ export default function NewProjectPage() {
                     value={price}
                     onChange={e => setPrice(e.target.value)}
                     placeholder="25,000" 
+                    className="h-11 pl-7 bg-background shadow-sm font-bold" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <Label htmlFor="amountPaid" className="text-sm font-semibold flex items-center gap-2">
+                   <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /> Amount Paid <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-3 text-muted-foreground/70 font-semibold">$</span>
+                  <Input 
+                    id="amountPaid" 
+                    type="text" 
+                    value={amountPaid}
+                    onChange={e => setAmountPaid(e.target.value)}
+                    placeholder="5,000" 
+                    className="h-11 pl-7 bg-background shadow-sm font-bold" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <Label htmlFor="amountPaid" className="text-sm font-semibold flex items-center gap-2">
+                   <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /> Amount Paid <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-3 text-muted-foreground/70 font-semibold">$</span>
+                  <Input 
+                    id="amountPaid" 
+                    type="text" 
+                    value={amountPaid}
+                    onChange={e => setAmountPaid(e.target.value)}
+                    placeholder="5,000" 
                     className="h-11 pl-7 bg-background shadow-sm font-bold" 
                   />
                 </div>

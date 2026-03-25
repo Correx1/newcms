@@ -83,7 +83,6 @@ export async function POST(request: Request) {
       .from('projects')
       .update({
         status: 'completed',
-        client_feedback: null,           // clear previous rejection feedback
         deliverables_summary,
         deliverables_links: deliverables_links ?? [],
         deliverables_files: deliverables_files ?? [],

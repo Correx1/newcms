@@ -57,7 +57,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         *,
         projects:projects!projects_client_id_fkey (*),
         assignments:project_assignments (
-          projects (*)
+          id, earnings, amount_paid, user_id, project_id,
+          projects (*),
+          staff_payment_logs (*)
         )
       `)
       .eq('id', profileId)

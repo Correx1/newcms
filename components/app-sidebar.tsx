@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import Link from "next/link"
@@ -11,12 +12,33 @@ import {
   LayoutDashboard,
   Receipt,
   UserPlus,
+  DollarSign,
+  MessageSquare
 } from "lucide-react"
 import Image from "next/image"
+import { useEffect, useState } from "react"
 
 export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const [unreadMsgs, setUnreadMsgs] = useState(0)
+
+  useEffect(() => {
+    if (!user) return
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch('/api/messages', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          const total = (data.conversations || []).reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0)
+          setUnreadMsgs(total)
+        }
+      } catch { /* ignore */ }
+    }
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 30000)
+    return () => clearInterval(interval)
+  }, [user])
 
   if (!user) return null
 
@@ -28,18 +50,24 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       { title: "Clients", icon: Users, href: "/clients" },
       { title: "Projects", icon: FolderKanban, href: "/projects" },
       { title: "Staff", icon: Users, href: "/staff" },
+      { title: "Messages", icon: MessageSquare, href: "/messages", badge: unreadMsgs },
       { title: "Invoices", icon: Receipt, href: "/invoices" },
+      { title: "My Earnings", icon: DollarSign, href: "/earnings" },
       { title: "Create User", icon: UserPlus, href: "/users/new" }
     )
   } else if (user.role === "staff") {
     navItems.push(
       { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard/staff" },
-      { title: "Projects", icon: FolderKanban, href: "/projects" }
+      { title: "Projects", icon: FolderKanban, href: "/projects" },
+      { title: "Messages", icon: MessageSquare, href: "/messages", badge: unreadMsgs },
+      { title: "My Earnings", icon: DollarSign, href: "/earnings" }
     )
   } else if (user.role === "client") {
     navItems.push(
       { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard/client" },
-      { title: "My Projects", icon: FolderKanban, href: "/projects" }
+      { title: "My Projects", icon: FolderKanban, href: "/projects" },
+      { title: "Messages", icon: MessageSquare, href: "/messages", badge: unreadMsgs },
+      { title: "Billing & Finance", icon: Receipt, href: "/billing" }
     )
   }
 
@@ -63,14 +91,21 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
                 key={index}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 my-1 transition-all",
+                  "flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 my-1 transition-all",
                   isActive 
                     ? "bg-primary-foreground/15 text-primary-foreground font-semibold shadow-sm" 
                     : "text-primary-foreground/75 hover:bg-primary-foreground/10 hover:text-primary-foreground font-medium"
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {item.title}
+                <span className="flex items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  {item.title}
+                </span>
+                {(item as any).badge > 0 && (
+                  <span className="h-5 min-w-[20px] px-1 flex items-center justify-center rounded-full bg-primary-foreground text-primary text-[10px] font-bold">
+                    {(item as any).badge > 9 ? '9+' : (item as any).badge}
+                  </span>
+                )}
               </Link>
             )
           })}
