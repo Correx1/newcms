@@ -395,22 +395,7 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
-              <div className="space-y-2.5">
-                <Label htmlFor="amountPaid" className="text-sm font-semibold flex items-center gap-2">
-                   <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-500" /> Amount Paid <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-3 text-muted-foreground/70 font-semibold">$</span>
-                  <Input 
-                    id="amountPaid" 
-                    type="text" 
-                    value={amountPaid}
-                    onChange={e => setAmountPaid(e.target.value)}
-                    placeholder="5,000" 
-                    className="h-11 pl-7 bg-background shadow-sm font-bold" 
-                  />
-                </div>
-              </div>
+         
 
               <div className="space-y-2.5">
                 <Label htmlFor="amountPaid" className="text-sm font-semibold flex items-center gap-2">

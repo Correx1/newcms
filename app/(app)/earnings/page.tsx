@@ -90,7 +90,7 @@ export default function EarningsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totalEarnings.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1 font-medium">Lifetime expected volume</p>
+            <p className="text-xs text-muted-foreground mt-1 font-medium">Total income</p>
           </CardContent>
         </Card>
 
@@ -102,7 +102,7 @@ export default function EarningsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">${totalPaid.toLocaleString()}</div>
-            <p className="text-xs text-emerald-600/70 font-medium mt-1">Total cleared to date</p>
+            <p className="text-xs text-emerald-600/70 font-medium mt-1">Total paid</p>
           </CardContent>
         </Card>
 

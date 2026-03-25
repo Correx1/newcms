@@ -95,7 +95,7 @@ export default function NewUserPage() {
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-primary" /> New User Invite
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="py-2">
               An invite email will be sent. Once they click the link, they&apos;ll set their own password and land on their role-specific dashboard.
             </CardDescription>
           </CardHeader>
@@ -127,13 +127,14 @@ export default function NewUserPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+             <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2 ">
               <Label htmlFor="role">Role</Label>
               <Select required value={role} onValueChange={val => setRole(val ?? role)}>
-                <SelectTrigger className="bg-background">
+                <SelectTrigger className="bg-background px-2">
                   <SelectValue placeholder="Select a role..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="px-2">
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="staff">Staff</SelectItem>
                   <SelectItem value="client">Client</SelectItem>
@@ -152,7 +153,7 @@ export default function NewUserPage() {
                 className="bg-background"
               />
             </div>
-
+</div>
             {role === "client" && (
               <div className="space-y-2">
                 <Label htmlFor="company">Company</Label>

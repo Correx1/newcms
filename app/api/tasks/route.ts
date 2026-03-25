@@ -26,7 +26,7 @@ export async function GET() {
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Clients cannot have tasks assigned directly to them from this board workflow (read-only for clients)
-    // Fetch global tasks assigned to this user, joining the project name.
+    // Fetch tasks assigned to this user, joining the project name.
     const admin = createAdminClient()
     const { data: tasks, error } = await admin
       .from('tasks')

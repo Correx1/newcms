@@ -91,8 +91,7 @@ export default function NewClientPage() {
       <Card className="shadow-sm border-border/50">
         <form onSubmit={handleSubmit}>
           <CardHeader>
-            <CardTitle>Client Information</CardTitle>
-            <CardDescription>Enter the client&apos;s contact and company details.</CardDescription>
+            <CardTitle className="pb-3">Client Information</CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -167,7 +166,7 @@ export default function NewClientPage() {
               {submitting
                 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 : <Save className="mr-2 h-4 w-4" />}
-              Create &amp; Send Invite
+              Create
             </Button>
           </CardFooter>
         </form>

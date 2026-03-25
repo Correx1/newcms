@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Send, MessageSquare, Plus, Search, Loader2,
-  FolderKanban, X, Users, Check, Pencil, Trash2
+  FolderKanban, X, Users, Check, Pencil, Trash2, ArrowLeft
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -315,7 +315,7 @@ export default function MessagesPage() {
       {/* Sidebar */}
       <div className={cn(
         "w-full sm:w-80 flex flex-col border-border/50 bg-muted/10 shrink-0 transition-all",
-        activeConv ? "h-[35%] sm:h-auto border-b sm:border-b-0 sm:border-r" : "flex-1 sm:h-auto sm:border-r"
+        activeConv ? "hidden sm:flex sm:h-auto sm:border-r" : "flex-1 sm:h-auto sm:border-r"
       )}>
         <div className="p-4 border-b border-border/50">
           <div className="flex items-center justify-between mb-3">
@@ -393,6 +393,12 @@ export default function MessagesPage() {
         {activeConv ? (
           <>
             <div className="px-5 py-3 border-b border-border/50 bg-muted/5 flex items-center gap-3 shrink-0">
+              <button 
+                className="sm:hidden p-1.5 -ml-2 rounded-full hover:bg-muted text-muted-foreground mr-1"
+                onClick={() => setActiveConv(null)}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
               <div className={cn("h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm ring-1",
                 activeConv.title ? "bg-violet-500/10 text-violet-600 ring-violet-500/20" : "bg-primary/10 text-primary ring-primary/20")}>
                 {activeConv.title ? <Users className="h-4 w-4" /> : getConvInitial(activeConv)}

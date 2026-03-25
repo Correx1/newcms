@@ -177,8 +177,8 @@ export default function ClientDashboard() {
 
             <Card className="shadow-sm border-border/50">
               <CardHeader>
-                <CardTitle>My Projects Query</CardTitle>
-                <CardDescription>Live relational rows directly matching your secure User Profile ID</CardDescription>
+                <CardTitle>My Projects</CardTitle>
+                <CardDescription>All my projects </CardDescription>
               </CardHeader>
               <CardContent className="p-0 sm:p-6 sm:pt-0">
                 <div className="overflow-x-auto w-full">
@@ -221,7 +221,7 @@ export default function ClientDashboard() {
             <Card className="shadow-sm border-border/50 h-full max-h-[600px] flex flex-col">
               <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
                 <CardTitle className="text-lg">Delivery Vault</CardTitle>
-                <CardDescription className="text-xs">Live downloads matching Edge triggers explicitly dropping documents globally</CardDescription>
+                <CardDescription className="text-xs">All files attached to your projects</CardDescription>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto pt-4">
                 <div className="space-y-3">

@@ -155,7 +155,7 @@ export default function StaffDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Staff Workspace</h1>
-        <p className="text-muted-foreground mt-1">Manage your native Supabase project assignments.</p>
+        <p className="text-muted-foreground mt-1">Manage your projects assigned to you to work on.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -164,7 +164,7 @@ export default function StaffDashboard() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>My Projects</CardTitle>
-              <CardDescription>Projects natively tracking against your Profile ID</CardDescription>
+              <CardDescription>Projects assigned to you to work on</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
@@ -173,7 +173,7 @@ export default function StaffDashboard() {
                 <TableHeader>
                   <TableRow className="border-border/50">
                     <TableHead>Project</TableHead>
-                    <TableHead>Client</TableHead>
+                    
                     <TableHead>Deadline</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -182,7 +182,6 @@ export default function StaffDashboard() {
                   {assignedProjects.map(project => (
                     <TableRow key={project.id} className="border-border/50">
                       <TableCell className="font-medium">{project.title}</TableCell>
-                      <TableCell className="text-muted-foreground">{project.client?.name || 'Not provided'}</TableCell>
                       <TableCell>
                         {project.deadline ? (
                           <span className="flex items-center whitespace-nowrap text-xs font-medium">

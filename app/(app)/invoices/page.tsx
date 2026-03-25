@@ -135,8 +135,8 @@ export default function InvoicesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Client Revenue Ledger</h1>
-              <p className="text-muted-foreground mt-1 text-sm md:text-base font-medium">Global mapping of client incoming financial dependencies.</p>
+              <h1 className="text-3xl font-bold tracking-tight">Client Revenue</h1>
+              <p className="text-muted-foreground mt-1 text-sm md:text-base font-medium">Client incoming financial.</p>
            </div>
         </div>
 
@@ -161,7 +161,7 @@ export default function InvoicesPage() {
         <Card className="shadow-sm border-border/50">
           <CardHeader className="bg-muted/5 border-b border-border/50 pb-4">
             <CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5 text-primary" /> Client Invoices Stack</CardTitle>
-            <CardDescription className="font-medium">Direct database execution extracting literal numeric parameters safely securely natively.</CardDescription>
+            <CardDescription className="font-medium">Details of all clients financial records.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -169,8 +169,8 @@ export default function InvoicesPage() {
                 <TableHeader className="bg-muted/30">
                   <TableRow className="border-border/50 hover:bg-transparent">
                     <TableHead className="w-[180px] py-4 pl-6 text-xs uppercase font-bold tracking-wider text-muted-foreground">Invoice ID</TableHead>
-                    {user?.role === "admin" && <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Client Entity</TableHead>}
-                    <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Target Project</TableHead>
+                    {user?.role === "admin" && <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Client</TableHead>}
+                    <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Project</TableHead>
                     <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-muted-foreground">Issued</TableHead>
                     <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-right">Client Budget</TableHead>
                     <TableHead className="py-4 text-xs uppercase font-bold tracking-wider text-right">Processed</TableHead>

@@ -120,7 +120,7 @@ export default function ClientsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Clients Directory</h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1">Manage physical profiles tracking strict Live SQL entries implicitly.</p>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Manage clients profiles tracking.</p>
         </div>
         {user?.role === "admin" && (
           <Button className="shadow-sm shadow-primary/20 w-full sm:w-auto" asChild>
@@ -136,13 +136,13 @@ export default function ClientsPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <CardTitle className="text-base md:text-lg font-medium flex items-center gap-2">
               <Users className="h-5 w-5 text-muted-foreground" />
-              Live Identity Resolvers
+              Clients Directory
             </CardTitle>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Extract parameters visually..."
+                placeholder="Search clients..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 bg-background/50 h-9 shadow-sm"

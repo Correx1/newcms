@@ -168,7 +168,7 @@ export default function MyGlobalTasksPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">My Global Tasks</h2>
+          <h2 className="text-3xl font-bold tracking-tight">My Tasks Board</h2>
           <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
             <Check className="h-4 w-4 text-primary" /> Here is everything currently assigned to you across all active projects.
           </p>
@@ -178,7 +178,7 @@ export default function MyGlobalTasksPage() {
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center space-y-4 text-muted-foreground">
            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-           <p className="text-sm font-semibold tracking-widest uppercase">Fetching global assignments...</p>
+           <p className="text-sm font-semibold tracking-widest uppercase">Loading my tasks...</p>
         </div>
       ) : (
         <div className="pt-4 h-[calc(100vh-160px)]">
