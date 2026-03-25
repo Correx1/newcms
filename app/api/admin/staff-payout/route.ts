@@ -59,16 +59,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Staff assignment not found' }, { status: 404 })
     }
 
-    // 2. Insert into staff_payment_logs
+    // 2. Insert into staff_payment_logs (use assignment.id if available, else skip FK)
+    const logInsert: any = {
+       amount: numericAmount,
+       payment_date: payment_date || new Date().toISOString(),
+       notes: notes || null,
+       recorded_by: user.id
+    }
+    if (assignment.id) logInsert.project_assignment_id = assignment.id
+
     const { error: logError } = await supabaseAdmin
       .from('staff_payment_logs')
-      .insert({
-         project_assignment_id: assignment.id,
-         amount: numericAmount,
-         payment_date: payment_date || new Date().toISOString(),
-         notes: notes || null,
-         recorded_by: user.id
-      })
+      .insert(logInsert)
 
     if (logError) {
        console.error('Staff payment log error:', logError)
@@ -91,13 +93,14 @@ export async function POST(request: Request) {
       message: `You received a payout of $${numericAmount.toLocaleString()} for your work on "${projName}".`
     })
 
-    // 3. Update staff amount_paid securely by incrementing total
+    // 3. Update amount_paid using composite PK (project_id + user_id) — avoids null id edge cases
     const newTotal = Number(assignment.amount_paid || 0) + numericAmount
 
     const { error: updateError } = await supabaseAdmin
       .from('project_assignments')
       .update({ amount_paid: newTotal })
-      .eq('id', assignment.id)
+      .eq('project_id', project_id)
+      .eq('user_id', user_id)
 
     if (updateError) {
       console.error('Staff payout update error:', updateError)

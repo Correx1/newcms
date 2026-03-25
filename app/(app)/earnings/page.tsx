@@ -5,16 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DollarSign, Wallet, Activity, ArrowLeft, ArrowRight } from "lucide-react"
+import { DollarSign, Wallet, Activity, ArrowLeft, ArrowRight, RefreshCw } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
-import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { useState, useEffect, useCallback } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
 
 export default function EarningsPage() {
   const { user } = useAuth()
-  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [assignments, setAssignments] = useState<any[]>([])
@@ -23,54 +21,33 @@ export default function EarningsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 10
 
-  useEffect(() => {
-    let mounted = true
-    const fetchEarnings = async () => {
-      if (!user) return
-      
-      try {
-        const { data, error } = await supabase
-          .from('project_assignments')
-          .select(`
-            id,
-            earnings,
-            amount_paid,
-            projects (
-              id,
-              title,
-              status,
-              deadline
-            )
-          `)
-          .eq('user_id', user.id)
-
-        if (error) throw error
-
-        if (mounted && data) {
-          // Flatten payload and ensure numbers
-          const flattened = data.map((a: any) => ({
-            id: a.id,
-            project_id: a.projects?.id,
-            title: a.projects?.title || "Unknown Project",
-            status: a.projects?.status || "unknown",
-            deadline: a.projects?.deadline,
-            earnings: Number(a.earnings) || 0,
-            amount_paid: Number(a.amount_paid) || 0
-          }))
-          
-          setAssignments(flattened.sort((a: { earnings: number }, b: { earnings: number }) => b.earnings - a.earnings))
-        }
-      } catch (err: any) {
-        console.error("Failed to fetch earnings:", err)
-        toast.error("Failed to load earnings data")
-      } finally {
-        if (mounted) setLoading(false)
-      }
+  const fetchEarnings = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+    try {
+      // Use the secure API route (admin key) so RLS doesn't filter out amount_paid
+      const res = await fetch('/api/earnings', { credentials: 'include', cache: 'no-store' })
+      if (!res.ok) throw new Error('Failed to fetch earnings')
+      const data = await res.json()
+      setAssignments((data.assignments || []).sort((a: any, b: any) => b.earnings - a.earnings))
+    } catch (err: any) {
+      console.error("Failed to fetch earnings:", err)
+      toast.error("Failed to load earnings data")
+    } finally {
+      setLoading(false)
     }
+  }, [user])
 
+  useEffect(() => {
     fetchEarnings()
-    return () => { mounted = false }
-  }, [user, supabase])
+  }, [fetchEarnings])
+
+  // Re-fetch when the user returns to the tab (e.g. after admin logs a payout)
+  useEffect(() => {
+    const handleFocus = () => fetchEarnings()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [fetchEarnings])
 
   if (!user || user.role === 'client') {
     return (
@@ -79,6 +56,7 @@ export default function EarningsPage() {
       </div>
     )
   }
+
 
   // Summary Math
   const totalEarnings = assignments.reduce((acc, a) => acc + a.earnings, 0)
@@ -98,6 +76,9 @@ export default function EarningsPage() {
           <h1 className="text-3xl font-bold tracking-tight">My Earnings</h1>
           <p className="text-muted-foreground mt-1 font-medium">Track your project payouts and upcoming balances.</p>
         </div>
+        <Button variant="outline" size="sm" onClick={fetchEarnings} disabled={loading} className="shadow-sm font-semibold h-9 gap-2">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

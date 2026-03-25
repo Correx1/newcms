@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/purity */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
@@ -10,12 +10,16 @@ import { ArrowLeft, Clock, Activity, CheckCircle2, Calendar, FolderKanban, Edit,
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import KanbanBoard from "./kanban-board"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { compressFile } from "@/lib/compress-file"
 
 export default function ProjectDetailsPage() {
   const { user } = useAuth()
@@ -42,19 +46,13 @@ export default function ProjectDetailsPage() {
   const [paymentNotes, setPaymentNotes] = useState("")
   const [submittingPayment, setSubmittingPayment] = useState(false)
 
-  const fetchProject = async () => {
-    const { data: pData } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        client:profiles!projects_client_id_fkey(name, company),
-        assignments:project_assignments(*, profiles(id, name, role), staff_payment_logs(id, amount, payment_date, notes)),
-        payment_logs(id, amount, payment_date, notes, recorded_by:profiles(name))
-      `)
-      .eq('id', projectId)
-      .single()
+  const [taskProgress, setTaskProgress] = useState(0)
 
-    if (pData) {
+  const fetchProject = async () => {
+    const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include', cache: 'no-store' })
+
+    if (res.ok) {
+      const { project: pData } = await res.json()
       if (user?.role === "client" && pData.client_id !== user.id) {
         router.push("/dashboard")
         return
@@ -67,9 +65,7 @@ export default function ProjectDetailsPage() {
   }
 
   useEffect(() => {
-    let mounted = true
     fetchProject()
-    return () => { mounted = false }
   }, [user?.id, projectId])
 
   const getStatusIcon = (status: string) => {
@@ -113,8 +109,16 @@ export default function ProjectDetailsPage() {
     const uploadedFilesData: {id: string, name: string, url: string, type: string, uploadedAt: string}[] = []
 
     for (const file of completionFiles) {
+      let fileData: File | Blob
+      try {
+        fileData = await compressFile(file)
+      } catch (e: any) {
+        toast.error(e.message)
+        setSubmitting(false)
+        return
+      }
       const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      const { data, error } = await supabase.storage.from('deliverables_vault').upload(`projects/${project.id}/${fileName}`, file)
+      const { data, error } = await supabase.storage.from('deliverables_vault').upload(`projects/${project.id}/${fileName}`, fileData)
       if (!error && data) {
         const { data: { publicUrl } } = supabase.storage.from('deliverables_vault').getPublicUrl(data.path)
         uploadedFilesData.push({ id: `f-${Date.now()}`, name: file.name, url: publicUrl, type: file.type, uploadedAt: new Date().toISOString() })
@@ -285,18 +289,43 @@ export default function ProjectDetailsPage() {
             </p>
           </div>
         </div>
-        {(user?.role === "admin") && (
-          <div className="flex gap-2 w-full sm:w-auto mt-4 sm:mt-0">
-            <Button variant="outline" className="shadow-sm border-border/50" asChild>
-              <Link href={`/projects/${project.id}/edit`}>
-                <Edit className="mr-2 h-4 w-4" /> Edit Details
-              </Link>
-            </Button>
+        <div className="flex flex-col gap-3 w-full sm:w-1/3">
+          {(user?.role === "admin") && (
+            <div className="flex justify-end gap-2 w-full mt-4 sm:mt-0">
+              <Button variant="outline" className="shadow-sm border-border/50" asChild>
+                <Link href={`/projects/${project.id}/edit`}>
+                  <Edit className="mr-2 h-4 w-4" /> Edit Details
+                </Link>
+              </Button>
+            </div>
+          )}
+          
+          {/* Real-time Project Tasks Automation Progress Bar */}
+          <div className="bg-background/80 p-3 rounded-lg border border-border/50 shadow-sm w-full animate-in fade-in">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <FolderKanban className="h-3.5 w-3.5" /> Task Progress
+              </span>
+              <span className="text-sm font-black text-primary">{taskProgress}%</span>
+            </div>
+            <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full transition-all duration-700 ease-out", taskProgress === 100 ? "bg-emerald-500" : "bg-primary")} 
+                style={{ width: `${taskProgress}%` }} 
+              />
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <Tabs defaultValue="overview" className="w-full mb-6 mt-4">
+        <TabsList className="mb-6 p-1 bg-muted/30 border border-border/50">
+          <TabsTrigger value="overview" className="font-semibold px-4">Overview</TabsTrigger>
+          <TabsTrigger value="tasks" className="font-semibold px-4"><FolderKanban className="w-3.5 h-3.5 mr-1.5" /> Tasks Board</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 outline-none mt-0">
+          <div className="grid gap-6 md:grid-cols-3">
         <div className="space-y-6 md:col-span-2">
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4 border-b border-border/50">
@@ -661,6 +690,12 @@ export default function ProjectDetailsPage() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="tasks" className="outline-none mt-0 min-h-[500px]">
+          <KanbanBoard projectId={projectId} userRole={user?.role || ""} staffList={assignedProfiles} onProgressUpdate={setTaskProgress} />
+        </TabsContent>
+      </Tabs>
 
       {/* Identical Completion Editor for Modifications during Review cycle */}
       <Dialog open={completeModalOpen} onOpenChange={setCompleteModalOpen}>

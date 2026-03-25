@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { compressFile } from "@/lib/compress-file"
 import { Badge } from "@/components/ui/badge"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 
@@ -104,8 +105,16 @@ export default function ProjectsPage() {
 
     const uploadedFilesData: {name: string, url: string, type: string, uploadedAt: string}[] = []
     for (const file of completionFiles) {
+      let fileData: File | Blob
+      try {
+        fileData = await compressFile(file)
+      } catch (e: any) {
+        toast.error(e.message)
+        setSubmitting(false)
+        return
+      }
       const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      const { data, error } = await supabase.storage.from('deliverables_vault').upload(`projects/${projectToComplete}/${fileName}`, file)
+      const { data, error } = await supabase.storage.from('deliverables_vault').upload(`projects/${projectToComplete}/${fileName}`, fileData)
       if (!error && data) {
         const { data: { publicUrl } } = supabase.storage.from('deliverables_vault').getPublicUrl(data.path)
         uploadedFilesData.push({ name: file.name, url: publicUrl, type: file.type, uploadedAt: new Date().toISOString() })

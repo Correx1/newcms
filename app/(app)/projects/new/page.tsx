@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { compressFile } from "@/lib/compress-file"
 
 export default function NewProjectPage() {
   const { user } = useAuth()
@@ -120,8 +121,16 @@ export default function NewProjectPage() {
     const uploadedFilesData = []
     if (selectedFiles.length > 0) {
       for (const file of selectedFiles) {
+        let fileData: File | Blob
+        try {
+          fileData = await compressFile(file)
+        } catch (e: any) {
+          toast.error(e.message)
+          setSubmitting(false)
+          return
+        }
         const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-        const { data, error } = await supabase.storage.from('deliverables_vault').upload(`projects/${newProjectId}/${fileName}`, file)
+        const { data, error } = await supabase.storage.from('deliverables_vault').upload(`projects/${newProjectId}/${fileName}`, fileData)
         if (!error && data) {
           const { data: { publicUrl } } = supabase.storage.from('deliverables_vault').getPublicUrl(data.path)
           uploadedFilesData.push({ id: `int-${Date.now()}`, name: file.name, url: publicUrl, type: file.type, uploadedAt: new Date().toISOString() })

@@ -194,6 +194,40 @@ export default function StaffProfilePage() {
                   </div>
                 </div>
               </div>
+
+              {/* Total Earnings Summary */}
+              {user?.role === 'admin' && (() => {
+                const totalExpected = allProjects.reduce((sum: number, p: any) => sum + (p.expected_earnings || 0), 0)
+                const totalPaid = allProjects.reduce((sum: number, p: any) => sum + (p.amount_paid || 0), 0)
+                const totalBalance = totalExpected - totalPaid
+                if (totalExpected === 0) return null
+                return (
+                  <div className="w-full border-t border-border/50 mt-4 pt-5 space-y-3">
+                    <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">Earnings Overview</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground font-medium">Expected</span>
+                      <span className="font-bold">${totalExpected.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-emerald-600/80 font-medium">Processed</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">${totalPaid.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-t border-border/50 pt-2 mt-1">
+                      <span className="font-bold">Balance</span>
+                      <span className={`font-black text-base ${totalBalance > 0 ? 'text-amber-500' : 'text-emerald-600'}`}>${totalBalance.toLocaleString()}</span>
+                    </div>
+                    {/* Mini progress bar */}
+                    {totalExpected > 0 && (
+                      <div>
+                        <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden mt-2">
+                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, (totalPaid / totalExpected) * 100)}%` }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground text-right mt-1 font-medium">{Math.round((totalPaid / totalExpected) * 100)}% paid</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         </div>
@@ -212,9 +246,7 @@ export default function StaffProfilePage() {
                   {assignedProjects.map((p: any) => (
                     <Link key={p.id} href={`/projects/${p.id}`} className="block">
                       <div className="border border-border/50 rounded-lg p-3 shadow-sm bg-background flex flex-col justify-between group h-full">
-                        <Link href={`/projects/${p.id}`} className="block">
-                          <div className="font-bold group-hover:text-primary transition-colors text-base underline-offset-4">{p.title}</div>
-                        </Link>
+                        <div className="font-bold group-hover:text-primary transition-colors text-base underline-offset-4">{p.title}</div>
                         
                         <div className="text-xs text-muted-foreground mt-2 flex items-center justify-between font-semibold">
                           <span>Limit: {p.deadline ? p.deadline.split('T')[0] : "None"}</span>
@@ -283,9 +315,7 @@ export default function StaffProfilePage() {
                   {completedProjects.map((p: any) => (
                     <Link key={p.id} href={`/projects/${p.id}`} className="block">
                       <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-lg p-3 shadow-sm flex flex-col justify-between group h-full">
-                        <Link href={`/projects/${p.id}`} className="block">
-                          <div className="font-bold text-emerald-700 dark:text-emerald-300 group-hover:underline transition-colors">{p.title}</div>
-                        </Link>
+                        <div className="font-bold text-emerald-700 dark:text-emerald-300 group-hover:underline transition-colors">{p.title}</div>
                         
                         {(user?.role === "admin" || p.expected_earnings > 0) && (
                           <div className="mt-3 space-y-1.5 border-t border-emerald-500/20 pt-2">

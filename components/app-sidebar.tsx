@@ -13,7 +13,8 @@ import {
   Receipt,
   UserPlus,
   DollarSign,
-  MessageSquare
+  MessageSquare,
+  ListTodo
 } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useState } from "react"
@@ -36,8 +37,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       } catch { /* ignore */ }
     }
     fetchUnread()
-    const interval = setInterval(fetchUnread, 30000)
-    return () => clearInterval(interval)
   }, [user])
 
   if (!user) return null
@@ -47,6 +46,7 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   if (user.role === "admin") {
     navItems.push(
       { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard/admin" },
+      { title: "My Tasks", icon: ListTodo, href: "/tasks" },
       { title: "Clients", icon: Users, href: "/clients" },
       { title: "Projects", icon: FolderKanban, href: "/projects" },
       { title: "Staff", icon: Users, href: "/staff" },
@@ -58,6 +58,7 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   } else if (user.role === "staff") {
     navItems.push(
       { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard/staff" },
+      { title: "My Tasks", icon: ListTodo, href: "/tasks" },
       { title: "Projects", icon: FolderKanban, href: "/projects" },
       { title: "Messages", icon: MessageSquare, href: "/messages", badge: unreadMsgs },
       { title: "My Earnings", icon: DollarSign, href: "/earnings" }
