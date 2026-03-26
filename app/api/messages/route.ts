@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -70,10 +71,11 @@ export async function GET() {
     }
 
     const conversations = convIds.map(cid => {
-      const otherParticipant = allParticipants?.find(p => p.conversation_id === cid)
+      const otherParticipants = allParticipants?.filter(p => p.conversation_id === cid).map(p => p.profiles) || []
       return {
         id: cid,
-        other_user: otherParticipant?.profiles ?? null,
+        other_user: otherParticipants[0] ?? null,
+        other_users: otherParticipants,
         last_message: lastMsgMap[cid] ?? null,
         unread_count: unreadMap[cid] ?? 0,
       }
@@ -145,14 +147,28 @@ export async function POST(request: Request) {
           .in('conversation_id', myConvIds)
 
         if (shared && shared.length > 0) {
-          conversationId = shared[0].conversation_id
+          const sharedIds = shared.map(s => s.conversation_id)
+          const { data: counts } = await admin
+            .from('conversation_participants')
+            .select('conversation_id')
+            .in('conversation_id', sharedIds)
+
+          const countMap: Record<string, number> = {}
+          counts?.forEach(c => {
+            countMap[c.conversation_id] = (countMap[c.conversation_id] || 0) + 1
+          })
+          
+          const directConvId = sharedIds.find(id => countMap[id] === 2)
+          if (directConvId) {
+            conversationId = directConvId
+          }
         }
       }
     }
 
     // Create new conversation (always for groups, or if 1-on-1 not found)
     if (!conversationId) {
-      const convTitle = isGroup ? body.title || null : null
+      const convTitle = isGroup ? (body.title?.trim() || 'Group Conversation') : null
       const { data: newConv, error: convErr } = await admin
         .from('conversations')
         .insert({ title: convTitle })

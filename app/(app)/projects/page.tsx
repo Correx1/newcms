@@ -176,7 +176,7 @@ export default function ProjectsPage() {
   }
 
   const getAssignedStaffNames = (assignments: any[]) => {
-    if (!assignments || assignments.length === 0) return "None"
+    if (!assignments || assignments.length === 0) return "Not assigned"
     return assignments.map((a: any) => a.profiles?.name).filter(Boolean).join(", ")
   }
 
@@ -228,9 +228,13 @@ export default function ProjectsPage() {
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border/50">
                   <TableHead className="w-[250px] py-4 pl-6 text-sm">Project Title</TableHead>
-                  <TableHead className="py-4 text-sm">Client</TableHead>
+                  {user?.role !== "client" && (
+                    <TableHead className="py-4 text-sm">Client</TableHead>
+                  )}
                   <TableHead className="py-4 text-sm">Status</TableHead>
-                  <TableHead className="py-4 text-sm hidden md:table-cell">Assigned Staff</TableHead>
+                  {user?.role !== "client" && (
+                    <TableHead className="py-4 text-sm hidden md:table-cell">Assigned Staff</TableHead>
+                  )}
                   <TableHead className="py-4 text-sm hidden lg:table-cell">Deadline Tracker</TableHead>
                   <TableHead className="py-4 pr-6 text-right text-sm">Actions</TableHead>
                 </TableRow>
@@ -247,11 +251,13 @@ export default function ProjectsPage() {
                           </Link>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <span className="text-sm font-medium text-foreground">
-                          {project.client?.name || "Not provided"}
-                        </span>
-                      </TableCell>
+                      {user?.role !== "client" && (
+                        <TableCell className="py-4">
+                          <span className="text-sm font-medium text-foreground">
+                            {project.client?.name || "Not provided"}
+                          </span>
+                        </TableCell>
+                      )}
                       <TableCell className="py-4">
                         {(user?.role === "admin" || (user?.role === "staff" && project.status !== "approved")) ? (
                           <DropdownMenu>
@@ -286,11 +292,13 @@ export default function ProjectsPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="py-4 hidden md:table-cell">
-                        <div className="text-sm text-muted-foreground whitespace-nowrap truncate max-w-[150px]">
-                          {getAssignedStaffNames(project.assignments || [])}
-                        </div>
-                      </TableCell>
+                      {user?.role !== "client" && (
+                        <TableCell className="py-4 hidden md:table-cell">
+                          <div className="text-sm text-muted-foreground whitespace-nowrap truncate max-w-[150px]">
+                            {getAssignedStaffNames(project.assignments || [])}
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell className="py-4 hidden lg:table-cell">
                         {(project.status === "approved" || project.status === "completed") ? (
                           <Badge className="w-fit text-xs px-2 py-0.5 whitespace-nowrap bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20">

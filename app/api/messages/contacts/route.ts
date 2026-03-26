@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -40,15 +41,18 @@ export async function GET() {
 
     let query = admin.from('profiles').select('id, name, email, role').neq('id', user.id)
 
-    // Staff and clients can only message admins
-    if (callerProfile.role !== 'admin') {
+    if (callerProfile.role === 'client') {
+      // Clients can only message admins
       query = query.eq('role', 'admin')
+    } else if (callerProfile.role === 'staff') {
+      // Staff can message admins and other staff
+      query = query.in('role', ['admin', 'staff'])
     }
 
     const { data: contacts } = await query.order('name')
 
     return NextResponse.json({ contacts: contacts || [] })
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -82,12 +82,12 @@ export default function ClientBillingPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="shadow-sm border-border/50 bg-gradient-to-br from-background to-muted/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Project Values</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Amount</CardTitle>
             <DollarSign className="h-4 w-4 text-primary/70" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">${totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground mt-1 font-medium">Accumulated billed amount</p>
+            <p className="text-xs text-muted-foreground mt-1 font-medium">Total amount for all projects</p>
           </CardContent>
         </Card>
         
@@ -98,7 +98,7 @@ export default function ClientBillingPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600 tracking-tight">${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <p className="text-xs text-emerald-600/70 mt-1 font-medium">Cleared payments recognized</p>
+            <p className="text-xs text-emerald-600/70 mt-1 font-medium">Cleared payments</p>
           </CardContent>
         </Card>
 
@@ -132,7 +132,7 @@ export default function ClientBillingPage() {
                   <TableHeader className="bg-muted/20">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="font-semibold px-4 py-3">Project Title</TableHead>
-                      <TableHead className="font-semibold text-right py-3 w-[150px]">Expected Value</TableHead>
+                      <TableHead className="font-semibold text-right py-3 w-[150px]">Amount</TableHead>
                       <TableHead className="font-semibold text-right py-3 w-[150px]">Amount Paid</TableHead>
                       <TableHead className="font-semibold text-right px-4 py-3 w-[150px]">Balance</TableHead>
                     </TableRow>

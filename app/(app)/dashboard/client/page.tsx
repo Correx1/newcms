@@ -194,7 +194,7 @@ export default function ClientDashboard() {
                     <TableBody>
                       {clientProjects.map(project => (
                         <TableRow key={project.id} className="border-border/50">
-                          <TableCell className="font-medium">{project.title}</TableCell>
+                          <TableCell className="font-medium capitalize">{project.title}</TableCell>
                           <TableCell>
                             <Badge variant="secondary" className={`capitalize ${getStatusColor(project.status).split(' ')[0]} bg-transparent`}>
                               {project.status}

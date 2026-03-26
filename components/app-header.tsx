@@ -171,8 +171,8 @@ export function AppHeader() {
           
           <div className="flex items-center gap-3 pr-2">
             <div className="hidden sm:flex items-center gap-2 sm:gap-3">
-              <span className="text-sm font-medium">{user.name}</span>
-              <Badge variant="secondary" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 capitalize font-medium border-none px-2.5 py-0.5">
+              <span className="text-sm font-medium capitalize">{user.name}</span>
+              <Badge variant="secondary" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 lowercase font-medium border-none px-2.5 py-0.5">
                 {user.role}
               </Badge>
             </div>

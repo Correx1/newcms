@@ -24,20 +24,38 @@ interface Conversation {
   id: string
   title: string | null
   other_user: OtherUser | null
-  last_message: { body: string; created_at: string; sender_id: string } | null
+  other_users?: OtherUser[]
+  last_message: any
   unread_count: number
 }
 interface Message {
   id: string
+  conversation_id: string
   sender_id: string
   body: string
-  is_read: boolean
-  is_deleted?: boolean
-  edited_at?: string | null
   created_at: string
-  project_id?: string | null
+  project_id: string | null
   project?: { title: string } | null
+  is_read: boolean
+  is_deleted: boolean
+  edited_at: string | null
   profiles?: { name: string; role: string }
+}
+
+const getStableColor = (id: string) => {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash)
+  const colors = [
+    "text-blue-600 dark:text-blue-400", 
+    "text-emerald-600 dark:text-emerald-400", 
+    "text-violet-600 dark:text-violet-400", 
+    "text-amber-600 dark:text-amber-400", 
+    "text-rose-600 dark:text-rose-400", 
+    "text-cyan-600 dark:text-cyan-400",
+    "text-fuchsia-600 dark:text-fuchsia-400",
+    "text-orange-600 dark:text-orange-400"
+  ]
+  return colors[Math.abs(hash) % colors.length]
 }
 
 export default function MessagesPage() {
@@ -257,7 +275,13 @@ export default function MessagesPage() {
     setStartingConv(false)
   }
 
-  const getConvLabel = (conv: Conversation) => conv.title || conv.other_user?.name || 'Conversation'
+  const getConvLabel = (c: Conversation) => {
+    if (c.title) return c.title
+    if (c.other_users && c.other_users.length > 1) {
+      return c.other_users.map(u => u?.name).join(', ')
+    }
+    return c.other_user?.name || 'Unknown'
+  }
   const getConvInitial = (conv: Conversation) => (conv.title || conv.other_user?.name || '?').charAt(0).toUpperCase()
   const filteredConvs = conversations.filter(c => getConvLabel(c).toLowerCase().includes(search.toLowerCase()))
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0)
@@ -311,11 +335,11 @@ export default function MessagesPage() {
   )
 
   return (
-    <div className="flex flex-col sm:flex-row h-[calc(100vh-4rem)] gap-0 overflow-hidden rounded-xl border border-border/50 shadow-sm bg-background">
+    <div className="flex h-[calc(100dvh-6rem)] sm:h-[calc(100vh-4rem)] w-full gap-0 overflow-hidden rounded-xl border border-border/50 shadow-sm bg-background">
       {/* Sidebar */}
       <div className={cn(
-        "w-full sm:w-80 flex flex-col border-border/50 bg-muted/10 shrink-0 transition-all",
-        activeConv ? "hidden sm:flex sm:h-auto sm:border-r" : "flex-1 sm:h-auto sm:border-r"
+        "w-full sm:w-80 flex flex-col border-border/50 bg-muted/10 shrink-0 transition-all h-full",
+        activeConv ? "hidden sm:flex sm:border-r" : "flex-1 sm:h-auto sm:border-r"
       )}>
         <div className="p-4 border-b border-border/50">
           <div className="flex items-center justify-between mb-3">
@@ -358,7 +382,9 @@ export default function MessagesPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-semibold text-sm truncate">{getConvLabel(conv)}</span>
+                      <span className="font-semibold text-sm truncate">
+                        {conv.title || (conv.other_users && conv.other_users.length > 1 ? 'Group Conversation' : getConvLabel(conv))}
+                      </span>
                       <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
                         {conv.last_message ? formatTime(conv.last_message.created_at) : ''}
                       </span>
@@ -371,12 +397,12 @@ export default function MessagesPage() {
                         </span>
                       )}
                     </div>
-                    {!conv.title && conv.other_user && (
+                    {!conv.title && (!conv.other_users || conv.other_users.length <= 1) && conv.other_user && (
                       <span className={cn("inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border mt-1 capitalize", getRoleColor(conv.other_user.role))}>
                         {conv.other_user.role}
                       </span>
                     )}
-                    {conv.title && <span className="text-[9px] text-violet-500 font-semibold mt-0.5 inline-block">Group</span>}
+                    {(conv.title || (conv.other_users && conv.other_users.length > 1)) && <span className="text-[9px] text-violet-500 font-semibold mt-0.5 inline-block">Group</span>}
                   </div>
                 </button>
               ))}
@@ -387,7 +413,7 @@ export default function MessagesPage() {
 
       {/* Chat Thread */}
       <div className={cn(
-        "flex-col overflow-hidden bg-background",
+        "flex-col overflow-hidden bg-background h-full w-full",
         activeConv ? "flex flex-1" : "hidden sm:flex flex-1"
       )}>
         {activeConv ? (
@@ -400,21 +426,31 @@ export default function MessagesPage() {
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <div className={cn("h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm ring-1",
-                activeConv.title ? "bg-violet-500/10 text-violet-600 ring-violet-500/20" : "bg-primary/10 text-primary ring-primary/20")}>
-                {activeConv.title ? <Users className="h-4 w-4" /> : getConvInitial(activeConv)}
+                (activeConv.title || (activeConv.other_users && activeConv.other_users.length > 1)) ? "bg-violet-500/10 text-violet-600 ring-violet-500/20" : "bg-primary/10 text-primary ring-primary/20")}>
+                {(activeConv.title || (activeConv.other_users && activeConv.other_users.length > 1)) ? <Users className="h-4 w-4" /> : getConvInitial(activeConv)}
               </div>
-              <div>
-                <p className="font-bold text-sm">{getConvLabel(activeConv)}</p>
-                {activeConv.other_user && !activeConv.title && (
-                  <span className={cn("inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border capitalize", getRoleColor(activeConv.other_user.role))}>
-                    {activeConv.other_user.role}
-                  </span>
+              <div className="flex-1 min-w-0">
+                {(activeConv.title || (activeConv.other_users && activeConv.other_users.length > 1)) ? (
+                  <>
+                    <p className="font-bold text-sm truncate">{activeConv.title || 'Group conversation'}</p>
+                    <p className="text-[10.5px] text-muted-foreground truncate font-medium uppercase tracking-tight mt-0.5">
+                      {activeConv.other_users?.map(u => `${u.name} (${u.role})`).join(', ')}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-sm truncate uppercase">{getConvLabel(activeConv)}</p>
+                    {activeConv.other_user && (
+                      <span className={cn("inline-flex items-center text-[9px] font-semibold px-2 py-0.5 rounded border capitalize mt-1", getRoleColor(activeConv.other_user.role))}>
+                        {activeConv.other_user.role}
+                      </span>
+                    )}
+                  </>
                 )}
-                {activeConv.title && <span className="text-[9px] text-violet-500 font-semibold">Group conversation</span>}
               </div>
             </div>
 
-            <ScrollArea className="flex-1 px-4 py-4">
+            <ScrollArea className="flex-1 min-h-0 px-4 py-4">
               {loadingMsgs ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
               ) : messages.length === 0 ? (
@@ -476,13 +512,21 @@ export default function MessagesPage() {
                                 <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setEditingMsgId(null); setEditingBody("") }}><X className="h-3.5 w-3.5" /></Button>
                               </div>
                             ) : (
-                              <div className={cn("max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+                              <div className={cn("max-w-[92%] sm:max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
                                 msg.is_deleted
                                   ? "bg-muted/30 text-muted-foreground italic border border-border/30 rounded-2xl"
                                   : isMe
                                     ? "bg-primary text-primary-foreground rounded-br-sm"
-                                    : "bg-muted/60 text-foreground border border-border/40 rounded-bl-sm")}>
-                                {msg.body}
+                                    : "bg-muted/50 text-foreground border border-border/30 rounded-bl-sm")}>
+                                
+                                {/* Sender name above message for groups */}
+                                {!isMe && !msg.is_deleted && (activeConv?.title || (activeConv?.other_users && activeConv.other_users.length > 1)) && msg.profiles && (
+                                  <div className="flex items-baseline gap-1.5 mb-1 opacity-90">
+                                    <span className={cn("font-bold text-[10.5px] lowercase tracking-tight", getStableColor(msg.sender_id))}>{msg.profiles.name}</span>
+                                    <span className="text-[8.5px] text-muted-foreground/80 font-bold lowercase tracking-wider">{msg.profiles.role}</span>
+                                  </div>
+                                )}
+                                <div className="whitespace-pre-wrap word-break-words break-words">{msg.body}</div>
                               </div>
                             )}
 
@@ -491,16 +535,6 @@ export default function MessagesPage() {
                             )}
                           </div>
 
-                          {/* Actions for received messages (delete only for admin) */}
-                          {!isMe && !msg.is_deleted && user?.role === 'admin' && (
-                            <div className="flex items-center gap-1 mb-1">
-                              <button onClick={() => deleteMessage(msg.id)}
-                                className="h-6 w-6 rounded-full bg-muted/60 border border-border/40 flex items-center justify-center hover:bg-destructive/10 hover:text-destructive transition-colors"
-                                title="Delete">
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
                     )
@@ -512,7 +546,7 @@ export default function MessagesPage() {
 
             {/* Tagged project chip */}
             {taggedProject && (
-              <div className="px-3 pt-2 flex items-center gap-2">
+              <div className="px-3 pt-2 flex items-center gap-2 shrink-0">
                 <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
                   <FolderKanban className="h-3 w-3" />
                   {taggedProject.title}
@@ -527,8 +561,23 @@ export default function MessagesPage() {
               <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" title="Tag a project" onClick={() => setProjectPickerOpen(true)}>
                 <FolderKanban className="h-4 w-4" />
               </Button>
-              <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..."
-                className="flex-1 bg-muted/20 border-border/50 font-medium" disabled={sending} autoFocus />
+              <textarea
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (newMessage.trim() && !sending) {
+                      e.currentTarget.form?.requestSubmit()
+                    }
+                  }
+                }}
+                placeholder="Type a message (Shift+Enter for new line)..."
+                className="flex-1 bg-muted/20 border border-border/50 font-medium rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none max-h-32 min-h-[40px] leading-relaxed hidden-scrollbar"
+                disabled={sending}
+                autoFocus
+                rows={Math.max(1, Math.min(newMessage.split('\n').length, 5))}
+              />
               <Button type="submit" disabled={!newMessage.trim() || sending} className="h-10 px-4 shadow-sm">
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
@@ -584,7 +633,7 @@ export default function MessagesPage() {
                   <p className="text-xs text-muted-foreground p-2 text-center">No contacts found</p>
                 ) : (
                   <>
-                    <ContactGroup label="👥 Staff & Admin" contacts={filteredStaff} color="text-blue-600" />
+                    <ContactGroup label={user?.role === 'client' ? "👥 Admin" : "👥 Staff & Admin"} contacts={filteredStaff} color="text-blue-600" />
                     <ContactGroup label="🧑‍💼 Clients" contacts={filteredClients} color="text-emerald-600" />
                     {filteredStaff.length === 0 && filteredClients.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-3">No results</p>
