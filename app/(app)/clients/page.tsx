@@ -173,7 +173,9 @@ export default function ClientsPage() {
                         </div>
                         <div className="flex flex-col overflow-hidden max-w-[200px]">
                           <span className="text-base font-bold leading-tight truncate px-1">{client.name || "Unnamed Block"}</span>
-                          <span className="text-xs text-muted-foreground md:hidden truncate">{client.email}</span>
+                           <span className="text-xs text-muted-foreground md:hidden truncate">
+                              {client.email && !client.email.includes('@noplincms.local') && !client.email.startsWith('silent_') ? client.email : 'No email provided'}
+                            </span>
                         </div>
                       </div>
                     </TableCell>
@@ -184,7 +186,12 @@ export default function ClientsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden md:table-cell text-sm font-medium py-4">
-                      <div className="truncate max-w-[180px]">{client.email}</div>
+                      <div className="truncate max-w-[180px]">
+                        {client.email && !client.email.includes('@noplincms.local') && !client.email.startsWith('silent_')
+                          ? client.email
+                          : <span className="italic">No email provided</span>
+                        }
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden lg:table-cell text-sm font-medium py-4">{client.phone || "---"}</TableCell>
                     <TableCell className="text-center py-4">

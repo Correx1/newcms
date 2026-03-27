@@ -419,7 +419,10 @@ export default function ProjectDetailsPage() {
                     <div className="space-y-2 mt-2">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Budget:</span>
-                        <span className="font-semibold text-foreground">{project.price || "Custom"}</span>
+                              <span className="font-semibold text-foreground">
+                        ${Number(project.price || "Custom").toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                              </span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Paid:</span>
@@ -693,7 +696,7 @@ export default function ProjectDetailsPage() {
         </TabsContent>
 
         <TabsContent value="tasks" className="outline-none mt-0 min-h-[500px]">
-          <KanbanBoard projectId={projectId} userRole={user?.role || ""} staffList={assignedProfiles} onProgressUpdate={setTaskProgress} />
+          <KanbanBoard projectId={projectId} userRole={user?.role || ""} staffList={assignedProfiles} onProgressUpdate={setTaskProgress} projectOverview={project?.details} projectDeliverables={project?.deliverables} />
         </TabsContent>
       </Tabs>
 

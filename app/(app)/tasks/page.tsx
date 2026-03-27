@@ -45,6 +45,7 @@ export default function MyGlobalTasksPage() {
   const [saving, setSaving] = useState(false)
   
   // Edit Modal State
+  const [userRole, setUserRole] = useState<string>('')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
@@ -53,6 +54,7 @@ export default function MyGlobalTasksPage() {
     if (res.ok) {
       const data = await res.json()
       setTasks(data.tasks || [])
+      setUserRole(String(data.role || '').toLowerCase())
     }
     setLoading(false)
   }, [])
@@ -163,6 +165,8 @@ export default function MyGlobalTasksPage() {
     if (priority === 'low') return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
     return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
   }
+
+  const canEditDetails = userRole === 'admin'
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -281,6 +285,7 @@ export default function MyGlobalTasksPage() {
                   onChange={e => setSelectedTask({...selectedTask, title: e.target.value})}
                   className="text-xl font-bold border-none bg-transparent p-0 resize-none focus-visible:ring-0 shadow-none leading-snug min-h-[40px]"
                   placeholder="Task Title..."
+                  disabled={!canEditDetails}
                 />
                 
                 <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground px-1">
@@ -295,40 +300,58 @@ export default function MyGlobalTasksPage() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2.5">
                   <Label className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><Clock className="h-3.5 w-3.5"/> Due Date</Label>
-                  <Input 
-                    type="date" 
-                    value={selectedTask.due_date ? new Date(selectedTask.due_date).toISOString().split('T')[0] : ''}
-                    onChange={(e) => setSelectedTask({...selectedTask, due_date: e.target.value || null})}
-                    className="h-9 shadow-sm"
-                  />
+                  {canEditDetails ? (
+                    <Input 
+                      type="date" 
+                      value={selectedTask.due_date ? new Date(selectedTask.due_date).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setSelectedTask({...selectedTask, due_date: e.target.value || null})}
+                      className="h-9 shadow-sm"
+                    />
+                  ) : (
+                    <div className="h-9 px-3 flex items-center bg-muted/20 border border-border/50 rounded-md text-sm font-medium">
+                      {selectedTask.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : 'No date set'}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2.5">
                   <Label className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><Flag className="h-3.5 w-3.5"/> Priority</Label>
-                  <Select 
-                    value={selectedTask.priority || 'medium'} 
-                    onValueChange={(val: any) => setSelectedTask({...selectedTask, priority: val})}
-                  >
-                    <SelectTrigger className="bg-background shadow-sm h-9">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low Priority</SelectItem>
-                      <SelectItem value="medium">Medium Priority</SelectItem>
-                      <SelectItem value="high">High Priority</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {canEditDetails ? (
+                    <Select 
+                      value={selectedTask.priority || 'medium'} 
+                      onValueChange={(val: any) => setSelectedTask({...selectedTask, priority: val})}
+                    >
+                      <SelectTrigger className="bg-background shadow-sm h-9">
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low Priority</SelectItem>
+                        <SelectItem value="medium">Medium Priority</SelectItem>
+                        <SelectItem value="high">High Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="h-9 px-3 flex items-center bg-muted/20 border border-border/50 rounded-md text-sm font-semibold capitalize">
+                      {selectedTask.priority || 'medium'} Priority
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-3">
                 <Label className="text-sm font-bold flex items-center gap-2"><Edit2 className="h-4 w-4 text-muted-foreground" /> Description</Label>
-                <Textarea 
-                  value={selectedTask.description || ''}
-                  onChange={e => setSelectedTask({...selectedTask, description: e.target.value})}
-                  placeholder="Add a more detailed description..."
-                  className="min-h-[120px] resize-y shadow-sm"
-                />
+                {canEditDetails ? (
+                  <Textarea 
+                    value={selectedTask.description || ''}
+                    onChange={e => setSelectedTask({...selectedTask, description: e.target.value})}
+                    placeholder="Add a more detailed description..."
+                    className="min-h-[120px] resize-y shadow-sm"
+                  />
+                ) : (
+                  <div className="min-h-[120px] bg-muted/10 rounded-xl border border-border/50 p-4 text-sm whitespace-pre-wrap leading-relaxed">
+                    {selectedTask.description || 'No description provided.'}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -362,6 +385,7 @@ export default function MyGlobalTasksPage() {
                         value={st.title}
                         onChange={e => updateSubtask(st.id, 'title', e.target.value)}
                         className={cn("h-8 bg-background shadow-sm border-transparent hover:border-border focus-visible:ring-1 transition-all", st.is_completed ? "line-through text-muted-foreground opacity-50" : "")}
+                        disabled={!canEditDetails}
                         placeholder="Task item..."
                       />
                     </div>
@@ -371,9 +395,11 @@ export default function MyGlobalTasksPage() {
             </div>
             
             <DialogFooter className="p-4 border-t bg-muted/10 shrink-0 flex-row items-center justify-between sm:justify-between w-full">
-              <Button variant="destructive" size="sm" onClick={() => handleDeleteTask(selectedTask.id, selectedTask.project_id)} className="h-9 shadow-sm gap-1.5">
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </Button>
+              {canEditDetails ? (
+                <Button variant="destructive" size="sm" onClick={() => handleDeleteTask(selectedTask.id, selectedTask.project_id)} className="h-9 shadow-sm gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+              ) : <div/>}
 
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)} className="h-9 bg-background">Cancel</Button>

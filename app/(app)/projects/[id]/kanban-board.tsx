@@ -46,9 +46,11 @@ interface KanbanBoardProps {
   userRole: string
   staffList?: StaffMember[]
   onProgressUpdate?: (progress: number) => void
+  projectOverview?: string
+  projectDeliverables?: string
 }
 
-export default function KanbanBoard({ projectId, userRole, staffList = [], onProgressUpdate }: KanbanBoardProps) {
+export default function KanbanBoard({ projectId, userRole, staffList = [], onProgressUpdate, projectOverview, projectDeliverables }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -60,6 +62,9 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
   // Edit Modal State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  
+  // AI Generation State
+  const [generatingAI, setGeneratingAI] = useState(false)
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/tasks`, { credentials: 'include' })
@@ -141,6 +146,56 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
       toast.error("Failed to create task")
     }
     setSaving(false)
+  }
+
+  const handleAIGenerateTasks = async () => {
+    if (!projectOverview) {
+      toast.error("Project has no overview to generate tasks from.")
+      return
+    }
+    setGeneratingAI(true)
+    toast.loading("Analyzing project and generating tasks...", { id: "ai-gen" })
+    
+    try {
+      const res = await fetch('/api/ai/generate-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overview: projectOverview, deliverables: projectDeliverables })
+      })
+
+      if (res.ok) {
+        const { tasks: generatedTasks } = await res.json()
+        
+        let successCount = 0
+        for (const t of generatedTasks) {
+          const mappedSubtasks = Array.isArray(t.subtasks) ? t.subtasks.map((title: string, index: number) => ({
+            id: `st-ai-${Date.now()}-${index}`,
+            title: title,
+            is_completed: false
+          })) : []
+
+          const createRes = await fetch(`/api/projects/${projectId}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: t.title, description: t.description, status: 'todo', priority: t.priority, subtasks: mappedSubtasks })
+          })
+          if (createRes.ok) successCount++
+        }
+        
+        if (successCount > 0) {
+          toast.success(`Generated and added ${successCount} tasks from AI!`, { id: "ai-gen" })
+          fetchTasks()
+        } else {
+          toast.error("AI returned tasks but failed to save them.", { id: "ai-gen" })
+        }
+      } else {
+        toast.error("Failed to generate AI tasks", { id: "ai-gen" })
+      }
+    } catch (e: any) {
+      toast.error("An error occurred during AI generation", { id: "ai-gen" })
+    } finally {
+      setGeneratingAI(false)
+    }
   }
 
   const handleDeleteTask = async (taskId: string, e?: React.MouseEvent) => {
@@ -228,10 +283,20 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
 
   if (loading) return <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
 
-  const isReadOnly = userRole === 'client'
+  const isReadOnly = String(userRole).toLowerCase() === 'client'
+  const canEditDetails = String(userRole).toLowerCase() === 'admin'
+
 
   return (
-    <div className="pt-2">
+    <div className="space-y-4 pt-2">
+      {canEditDetails && (
+        <div className="flex justify-end">
+           <Button variant="outline" size="sm" onClick={handleAIGenerateTasks} disabled={generatingAI} className="gap-2 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 border-indigo-200/60 shadow-sm transition-all text-xs font-bold tracking-tight">
+             {generatingAI ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span>✨</span>}
+             Auto-Generate AI Tasks
+           </Button>
+        </div>
+      )}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full">
           {columns.map(col => {
@@ -319,7 +384,7 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
                       {provided.placeholder}
                       
                       {/* Quick Add Form */}
-                      {!isReadOnly && addingTo === col.id && (
+                      {canEditDetails && addingTo === col.id && (
                         <div className="bg-background border border-primary/40 rounded-lg p-2 shadow-sm animate-in fade-in zoom-in-95 duration-200">
                           <input 
                             autoFocus
@@ -344,7 +409,7 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
                   )}
                 </Droppable>
 
-                {!isReadOnly && addingTo !== col.id && (
+                {canEditDetails && addingTo !== col.id && (
                   <div className="p-2 border-t bg-background/50 backdrop-blur-sm shrink-0">
                     <Button variant="ghost" className="w-full justify-start text-xs font-semibold h-8 text-muted-foreground hover:text-foreground hover:bg-muted/50" onClick={() => setAddingTo(col.id)}>
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add Card
@@ -370,7 +435,7 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
                   onChange={e => setSelectedTask({...selectedTask, title: e.target.value})}
                   className="text-lg font-bold border-none bg-transparent p-0 resize-none focus-visible:ring-0 shadow-none leading-snug min-h-[40px]"
                   placeholder="Task Title..."
-                  disabled={isReadOnly}
+                  disabled={!canEditDetails}
                 />
                 <p className="text-xs font-medium text-muted-foreground px-1">
                   in list <span className="underline decoration-muted-foreground/30 capitalize">{selectedTask.status.replace('_', ' ')}</span>
@@ -382,62 +447,82 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2.5">
                   <Label className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><User className="h-3.5 w-3.5"/> Assignee</Label>
-                  <Select 
-                    disabled={isReadOnly}
-                    value={selectedTask.assignee_id || "none"} 
-                    onValueChange={(val) => setSelectedTask({...selectedTask, assignee_id: val === "none" ? null : val})}
-                  >
-                    <SelectTrigger className="bg-background shadow-sm h-9">
-                      <SelectValue placeholder="Unassigned" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-muted-foreground italic">Unassigned</SelectItem>
-                      {staffList.map(staff => (
-                        <SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {canEditDetails ? (
+                    <Select 
+                      value={selectedTask.assignee_id || "none"} 
+                      onValueChange={(val) => setSelectedTask({...selectedTask, assignee_id: val === "none" ? null : val})}
+                    >
+                      <SelectTrigger className="bg-background shadow-sm h-9">
+                        <SelectValue placeholder="Unassigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-muted-foreground italic">Unassigned</SelectItem>
+                        {staffList.map(staff => (
+                          <SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="h-9 px-3 flex items-center bg-muted/20 border border-border/50 rounded-md text-sm font-medium">
+                      {staffList.find(s => s.id === selectedTask.assignee_id)?.name || 'Unassigned'}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2.5">
                   <Label className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><Clock className="h-3.5 w-3.5"/> Due Date</Label>
-                  <Input 
-                    type="date" 
-                    disabled={isReadOnly}
-                    value={selectedTask.due_date ? new Date(selectedTask.due_date).toISOString().split('T')[0] : ''}
-                    onChange={(e) => setSelectedTask({...selectedTask, due_date: e.target.value || null})}
-                    className="h-9 shadow-sm"
-                  />
+                  {canEditDetails ? (
+                    <Input 
+                      type="date" 
+                      value={selectedTask.due_date ? new Date(selectedTask.due_date).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setSelectedTask({...selectedTask, due_date: e.target.value || null})}
+                      className="h-9 shadow-sm"
+                    />
+                  ) : (
+                    <div className="h-9 px-3 flex items-center bg-muted/20 border border-border/50 rounded-md text-sm font-medium">
+                      {selectedTask.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : 'No date set'}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2.5 col-span-2 sm:col-span-1">
                   <Label className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5"><Flag className="h-3.5 w-3.5"/> Priority</Label>
-                  <Select 
-                    disabled={isReadOnly}
-                    value={selectedTask.priority || 'medium'} 
-                    onValueChange={(val: any) => setSelectedTask({...selectedTask, priority: val})}
-                  >
-                    <SelectTrigger className="bg-background shadow-sm h-9">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low Priority</SelectItem>
-                      <SelectItem value="medium">Medium Priority</SelectItem>
-                      <SelectItem value="high">High Priority</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {canEditDetails ? (
+                    <Select 
+                      value={selectedTask.priority || 'medium'} 
+                      onValueChange={(val: any) => setSelectedTask({...selectedTask, priority: val})}
+                    >
+                      <SelectTrigger className="bg-background shadow-sm h-9">
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low Priority</SelectItem>
+                        <SelectItem value="medium">Medium Priority</SelectItem>
+                        <SelectItem value="high">High Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="h-9 px-3 flex items-center bg-muted/20 border border-border/50 rounded-md text-sm font-semibold capitalize">
+                      {selectedTask.priority || 'medium'} Priority
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-3">
                 <Label className="text-sm font-bold flex items-center gap-2"><Edit2 className="h-4 w-4 text-muted-foreground" /> Description</Label>
-                <Textarea 
-                  value={selectedTask.description || ''}
-                  onChange={e => setSelectedTask({...selectedTask, description: e.target.value})}
-                  disabled={isReadOnly}
-                  placeholder="Add a more detailed description..."
-                  className="min-h-[120px] resize-y shadow-sm"
-                />
+                {canEditDetails ? (
+                  <Textarea 
+                    value={selectedTask.description || ''}
+                    onChange={e => setSelectedTask({...selectedTask, description: e.target.value})}
+                    placeholder="Add a more detailed description..."
+                    className="min-h-[120px] resize-y shadow-sm"
+                  />
+                ) : (
+                  <div className="min-h-[120px] bg-muted/10 rounded-xl border border-border/50 p-4 text-sm whitespace-pre-wrap leading-relaxed">
+                    {selectedTask.description || 'No description provided.'}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -472,11 +557,11 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
                       <Input 
                         value={st.title}
                         onChange={e => updateSubtask(st.id, 'title', e.target.value)}
-                        disabled={isReadOnly}
+                        disabled={!canEditDetails}
                         className={cn("h-8 bg-background shadow-sm border-transparent hover:border-border focus-visible:ring-1 transition-all", st.is_completed ? "line-through text-muted-foreground" : "")}
                         placeholder="Task item..."
                       />
-                      {!isReadOnly && (
+                      {!isReadOnly && canEditDetails && (
                         <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:bg-destructive/10 transition-opacity" onClick={() => removeSubtask(st.id)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -484,7 +569,7 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
                     </div>
                   ))}
 
-                  {!isReadOnly && (
+                  {!isReadOnly && canEditDetails && (
                     <Button variant="secondary" size="sm" onClick={addSubtask} className="mt-2 text-xs font-semibold h-8 w-full bg-background border shadow-sm">
                       <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Item
                     </Button>
@@ -494,7 +579,7 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
             </div>
             
             <DialogFooter className="p-4 border-t bg-muted/10 shrink-0 flex-row items-center justify-between sm:justify-between w-full">
-              {!isReadOnly ? (
+              {!isReadOnly && canEditDetails ? (
                 <Button variant="destructive" size="sm" onClick={() => handleDeleteTask(selectedTask.id)} className="h-9 shadow-sm gap-1.5">
                   <Trash2 className="h-3.5 w-3.5" /> Delete
                 </Button>

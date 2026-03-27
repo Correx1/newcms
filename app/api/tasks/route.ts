@@ -34,9 +34,11 @@ export async function GET() {
       .eq('assignee_id', user.id)
       .order('due_date', { ascending: true, nullsFirst: false })
 
+    const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single()
+
     if (error) return NextResponse.json({ error: 'Failed to query tasks' }, { status: 500 })
 
-    return NextResponse.json({ tasks: tasks || [] })
+    return NextResponse.json({ tasks: tasks || [], role: profile?.role || '' })
   } catch (err: any) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

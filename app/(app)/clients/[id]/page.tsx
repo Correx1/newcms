@@ -1,19 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Building2, Mail, Phone, FolderKanban, CheckCircle2, Clock, Activity, Settings, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Building2, Mail, Phone, FolderKanban, CheckCircle2, Clock, Activity, Settings, Loader2, Receipt, FileText, Calendar, DollarSign, AlertCircle, MapPin, Briefcase, Plus, ArrowRight, ExternalLink, Download } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
-import { DetailSkeleton } from "@/components/ui/page-skeleton"
+import { DetailSkeleton, PageSkeleton } from "@/components/ui/page-skeleton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { createClient } from "@/lib/supabase/client"
 
 export default function ClientProfilePage() {
   const params = useParams()
@@ -23,6 +26,10 @@ export default function ClientProfilePage() {
   
   const [loading, setLoading] = useState(true)
   const [clientProfile, setClientProfile] = useState<any>(null)
+  const [clientInvoices, setClientInvoices] = useState<any[]>([])
+  const [projectFinancials, setProjectFinancials] = useState<any[]>([])
+  const [clientProjects, setClientProjects] = useState<any[]>([])
+  const supabase = createClient()
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editName, setEditName] = useState("")
@@ -56,6 +63,30 @@ export default function ClientProfilePage() {
             }
           }
         }
+        
+        // Fetch specific invoices tied to the client
+         const { data: clientInvoices } = await supabase
+           .from('invoices')
+           .select('id, invoice_number, issue_date, grand_total, status, currency')
+           .eq('client_id', clientId)
+           .order('created_at', { ascending: false })
+           
+        if (mounted && clientInvoices) {
+           setClientInvoices(clientInvoices)
+        }
+
+        // Fetch project financials + list for this client  
+        const { data: projData } = await supabase
+          .from('projects')
+          .select('id, title, status, deadline, price, amount_paid')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+
+        if (mounted && projData) {
+          setProjectFinancials(projData)
+          setClientProjects(projData)
+        }
+        
       } catch (err) {
         console.error("Failed to fetch client details:", err)
       } finally {
@@ -73,17 +104,13 @@ export default function ClientProfilePage() {
     return <div className="p-8 text-center text-muted-foreground font-semibold">Client Map Execution failed structurally. Identity lost.</div>
   }
 
-  const clientProjects = clientProfile.projects || []
-  
-  // Calculate total mocked value delivered based on prices 
-  // (Assuming basic string numbers from price input, safely parsing)
-  const totalValue = clientProjects.reduce((acc: number, p: any) => {
-    if (p.price && p.status === "completed") {
-      const num = parseFloat(p.price.toString().replace(/,/g, ''))
-      return acc + (isNaN(num) ? 0 : num)
-    }
-    return acc
+  // Compute financial metrics from real project data
+  const totalBudget = projectFinancials.reduce((acc, p) => {
+    const num = parseFloat((p.price || '0').toString().replace(/[^0-9.]/g, ''))
+    return acc + (isNaN(num) ? 0 : num)
   }, 0)
+  const totalPaid = projectFinancials.reduce((acc, p) => acc + Number(p.amount_paid || 0), 0)
+  const totalBalance = Math.max(0, totalBudget - totalPaid)
 
   const getStatusIcon = (status: string) => {
     switch(status) {
@@ -140,6 +167,17 @@ export default function ClientProfilePage() {
     }
   }
 
+  // Optimistic Invoice Mutator
+  const updateInvoiceStatus = async (invoiceId: string, newStatus: string) => {
+    setClientInvoices((current: any[]) => current.map((inv: any) => inv.id === invoiceId ? { ...inv, status: newStatus } : inv))
+    const { error } = await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId)
+    if (error) {
+       toast.error("Failed to update status")
+    } else {
+       toast.success("Invoice status updated")
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -187,7 +225,10 @@ export default function ClientProfilePage() {
             <div className="space-y-3 pt-4 border-t border-border/50">
               <div className="flex items-center gap-3 text-sm font-semibold">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <a href={`mailto:${clientProfile.email}`} className="text-primary hover:underline">{clientProfile.email}</a>
+                {clientProfile.email && !clientProfile.email.includes('@noplincms.local') && !clientProfile.email.startsWith('silent_')
+                  ? <a href={`mailto:${clientProfile.email}`} className="text-primary hover:underline">{clientProfile.email}</a>
+                  : <span className="text-muted-foreground italic font-medium">No email provided</span>
+                }
               </div>
               <div className="flex items-center gap-3 text-sm font-semibold">
                 <Phone className="h-4 w-4 text-muted-foreground" />
@@ -199,10 +240,18 @@ export default function ClientProfilePage() {
               </div>
             </div>
             
-            <div className="pt-4 border-t border-border/50">
-              <div className="bg-muted/10 p-4 rounded-xl border border-border/50 shadow-sm">
-                <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Total Value Delivered</div>
-                <div className="text-2xl font-bold">${totalValue.toLocaleString()} <span className="text-[10px] uppercase font-bold text-emerald-500/70 ml-1">from completed projects</span></div>
+            <div className="pt-4 border-t border-border/50 space-y-3">
+              <div className="bg-muted/10 p-3 rounded-xl border border-border/50 shadow-sm">
+                <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Total Budget</div>
+                <div className="text-xl font-bold">${totalBudget.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div className="bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20 shadow-sm">
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-widest mb-1">Amount Paid</div>
+                <div className="text-xl font-bold text-emerald-600 dark:text-emerald-300">${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div className="bg-destructive/5 p-3 rounded-xl border border-destructive/20 shadow-sm">
+                <div className="text-[10px] text-destructive uppercase font-bold tracking-widest mb-1">Balance Outstanding</div>
+                <div className="text-xl font-bold text-destructive">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           </CardContent>
@@ -269,6 +318,72 @@ export default function ClientProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* INVOICES SECTION */}
+      <Card className="shadow-sm border-border/50">
+        <CardHeader className="flex flex-row items-baseline justify-between bg-muted/5 border-b border-border/50 pb-4">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5 text-primary" /> Invoice History</CardTitle>
+            <CardDescription className="font-medium mt-1">Record of all aggregated bills and official invoices transmitted to this client.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4 p-0 md:p-6 md:pt-4">
+          {clientInvoices.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border/50 hover:bg-transparent">
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground py-3 pl-4 md:pl-0">Issue Date</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground py-3">Invoice Number</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground py-3 text-right">Grand Total</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground py-3 text-center pr-4 md:pr-0">Status</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground py-3 text-right"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientInvoices.map((inv: any) => (
+                    <TableRow key={inv.id} className="border-border/50 group hover:bg-muted/20">
+                      <TableCell className="text-muted-foreground text-sm font-semibold py-4 pl-4 md:pl-0">
+                        {new Date(inv.issue_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </TableCell>
+                      <TableCell className="font-bold text-sm py-4">
+                        <span className="bg-primary/10 text-primary px-2 py-1 rounded-md text-xs font-mono">{inv.invoice_number}</span>
+                      </TableCell>
+                      <TableCell className="text-right py-4 font-bold text-foreground">
+                        {inv.currency === "NGN" ? "₦" : inv.currency === "GBP" ? "£" : inv.currency === "EUR" ? "€" : "$"}{Number(inv.grand_total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-center py-4 pr-4 md:pr-0 w-[150px]">
+                         <Select defaultValue={inv.status} onValueChange={(val) => updateInvoiceStatus(inv.id, val)}>
+                            <SelectTrigger className={`h-8 text-[10px] uppercase font-bold tracking-wider border ${inv.status === 'paid' ? 'text-emerald-600 border-emerald-500/20 bg-emerald-500/10' : inv.status === 'overdue' ? 'text-destructive border-destructive/20 bg-destructive/10' : inv.status === 'unpaid' ? 'text-blue-500 border-blue-500/20 bg-blue-500/10' : 'text-slate-500 border-slate-500/20 bg-slate-500/10'}`}>
+                               <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                               <SelectItem value="draft" className="text-xs font-bold text-slate-500">DRAFT</SelectItem>
+                               <SelectItem value="unpaid" className="text-xs font-bold text-blue-500">UNPAID</SelectItem>
+                               <SelectItem value="paid" className="text-xs font-bold text-emerald-600">PAID</SelectItem>
+                               <SelectItem value="overdue" className="text-xs font-bold text-destructive">OVERDUE</SelectItem>
+                            </SelectContent>
+                         </Select>
+                      </TableCell>
+                      <TableCell className="py-4 px-4 md:px-6 text-right w-[100px]">
+                         <Button variant="outline" size="icon" asChild className="h-8 w-8 text-primary border-primary/20 hover:bg-primary/10 shadow-sm" title="Download Invoice">
+                            <Link href={`/invoices/${inv.id}`}><Download className="h-4 w-4" /></Link>
+                         </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-10 border border-dashed rounded-lg border-border/50 mt-2 bg-muted/5 mx-4 md:mx-0 mb-4 md:mb-0">
+              <Receipt className="mx-auto h-8 w-8 text-muted-foreground opacity-30 mb-3" />
+              <h3 className="text-lg font-bold">No Official Invoices</h3>
+              <p className="text-sm font-medium text-muted-foreground mt-1">This client has no finalized real invoices generated yet.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {user?.role === "admin" && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

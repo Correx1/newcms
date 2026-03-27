@@ -133,3 +133,50 @@
     }
   }
 }
+
+/* ============================================
+   PRINT RESET — Forces clean A4 single page
+   ============================================ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html, body {
+    font-size: 11px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Hide everything on the page EXCEPT the print target */
+  body > * {
+    display: none !important;
+  }
+
+  /* The invoice viewer wrapper */
+  [data-print-area] {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* The inner template */
+  [data-print-area] > * {
+    display: flex !important;
+    width: 210mm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

@@ -14,7 +14,8 @@ import {
   UserPlus,
   DollarSign,
   MessageSquare,
-  ListTodo
+  ListTodo,
+  Settings
 } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useState } from "react"
@@ -53,7 +54,8 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       { title: "Messages", icon: MessageSquare, href: "/messages", badge: unreadMsgs },
       { title: "Invoices", icon: Receipt, href: "/invoices" },
       { title: "My Earnings", icon: DollarSign, href: "/earnings" },
-      { title: "Create User", icon: UserPlus, href: "/users/new" }
+      { title: "Create User", icon: UserPlus, href: "/users/new" },
+      { title: "Settings", icon: Settings, href: "/settings" }
     )
   } else if (user.role === "staff") {
     navItems.push(

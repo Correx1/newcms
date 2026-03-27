@@ -35,6 +35,8 @@ export default function NewProjectPage() {
   const [amountPaid, setAmountPaid] = useState("")
   const [selectedStaff, setSelectedStaff] = useState<{id: string, earnings: string}[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [enhancing, setEnhancing] = useState(false)
+  const [generatingDeliverables, setGeneratingDeliverables] = useState(false)
 
   // Fetch Clients and Staff options on Mount
   useEffect(() => {
@@ -71,6 +73,44 @@ export default function NewProjectPage() {
     setSelectedStaff(prev => 
       prev.map(s => s.id === staffId ? { ...s, earnings: value } : s)
     )
+  }
+
+  const enhanceOverview = async () => {
+    if (!details.trim()) return toast.error("Write a short brief first!")
+    setEnhancing(true)
+    const res = await fetch('/api/ai/enhance-overview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: details })
+    })
+    setEnhancing(false)
+    if (res.ok) {
+      const data = await res.json()
+      setDetails(data.text)
+      toast.success("Overview enhanced!")
+    } else {
+      const err = await res.json().catch(() => ({}))
+      toast.error(err.error || "AI enhancement failed")
+    }
+  }
+
+  const generateDeliverables = async () => {
+    if (!details.trim()) return toast.error("Need an overview to generate deliverables!")
+    setGeneratingDeliverables(true)
+    const res = await fetch('/api/ai/generate-deliverables', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overview: details })
+    })
+    setGeneratingDeliverables(false)
+    if (res.ok) {
+      const data = await res.json()
+      setDeliverables(data.text)
+      toast.success("Deliverables generated!")
+    } else {
+      const err = await res.json().catch(() => ({}))
+      toast.error(err.error || "AI generation failed")
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -208,9 +248,15 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2.5">
-                <Label htmlFor="details" className="text-sm font-semibold flex items-center gap-2">
-                  <Text className="h-4 w-4 text-muted-foreground" /> Overview Details
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="details" className="text-sm font-semibold flex items-center gap-2">
+                    <Text className="h-4 w-4 text-muted-foreground" /> Overview Details
+                  </Label>
+                  <Button type="button" variant="outline" size="sm" onClick={enhanceOverview} disabled={enhancing} className="h-7 text-xs gap-1.5 text-violet-600 border-violet-200 bg-violet-50 hover:bg-violet-100 hover:text-violet-800 shadow-none">
+                    {enhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <span>✨</span>}
+                    Enhance with AI
+                  </Button>
+                </div>
                 <textarea 
                   id="details" 
                   value={details}
@@ -222,9 +268,15 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2.5 border-t border-border/50 pt-6 mt-2">
-                <Label htmlFor="deliverables" className="text-sm font-semibold flex items-center gap-2">
-                   <FileText className="h-4 w-4 text-muted-foreground" /> Deliverables
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="deliverables" className="text-sm font-semibold flex items-center gap-2">
+                     <FileText className="h-4 w-4 text-muted-foreground" /> Deliverables
+                  </Label>
+                  <Button type="button" variant="outline" size="sm" onClick={generateDeliverables} disabled={generatingDeliverables} className="h-7 text-xs gap-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 shadow-none">
+                    {generatingDeliverables ? <Loader2 className="h-3 w-3 animate-spin" /> : <span>✨</span>}
+                    Auto-Generate
+                  </Button>
+                </div>
                 <textarea 
                   id="deliverables" 
                   value={deliverables}
