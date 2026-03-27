@@ -34,7 +34,7 @@ export default function InvoiceViewerPage() {
 
   const handlePrint = useReactToPrint({
     contentRef: contentRef,
-    documentTitle: invoice?.invoice_number || 'Invoice',
+    documentTitle: `Invoice_${invoice?.invoice_number}`,
     pageStyle: `
       @page {
         size: A4 portrait;
@@ -42,8 +42,10 @@ export default function InvoiceViewerPage() {
       }
       @media print {
         html, body {
-          margin: 0;
-          padding: 0;
+          width: 210mm !important;
+          height: 297mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
           font-size: 11px !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
@@ -52,6 +54,10 @@ export default function InvoiceViewerPage() {
         }
         * {
           box-sizing: border-box;
+        }
+        .invoice-scaler {
+           zoom: 1 !important;
+           transform: none !important;
         }
       }
     `,
@@ -169,7 +175,7 @@ export default function InvoiceViewerPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           {user?.role === "admin" && (
             <Button variant="outline" className="shadow-sm font-bold border-border/50 bg-muted/10 h-10 w-full sm:w-auto" asChild>
                <a href={`/invoices/edit/${invoice.id}`}><LayoutDashboard className="h-4 w-4 mr-2" /> Edit</a>
@@ -182,26 +188,30 @@ export default function InvoiceViewerPage() {
       </div>
 
       {/* A4 Document Native Paper Container */}
-      <div className="flex justify-center w-full overflow-x-auto print:overflow-visible print:m-0 py-6">
-        
-        {/*
-          This container mimics A4 Page constraints. 
-          When Printing, it natively drops drop-shadows and margins to fill the page cleanly.
-        */}
-        <div 
-          ref={contentRef}
-          data-print-area
-          className="w-full max-w-[850px] min-h-[1100px] bg-background lg:shadow-xl lg:shadow-black/5 lg:border border-border/50 print:shadow-none print:border-none print:m-0 print:max-w-none print:w-[210mm] print:min-h-0"
-        >
-           {selectedLayout === "layout-1" && <Layout1 {...templateProps} />}
-           {selectedLayout === "layout-2" && <Layout2 {...templateProps} />}
-           {selectedLayout === "layout-3" && <Layout3 {...templateProps} />}
-           {selectedLayout === "layout-4" && <Layout4 {...templateProps} />}
-           {selectedLayout === "layout-5" && <Layout5 {...templateProps} />}
-           {selectedLayout === "layout-6" && <Layout6 {...templateProps} />}
-           
-           {/* Fallback */}
-           {!["layout-1", "layout-2", "layout-3", "layout-4", "layout-5", "layout-6"].includes(selectedLayout) && <Layout1 {...templateProps} />}
+      <style dangerouslySetInnerHTML={{__html: `
+        .invoice-scaler { zoom: 0.45; }
+        @media (min-width: 640px) { .invoice-scaler { zoom: 0.65; } }
+        @media (min-width: 768px) { .invoice-scaler { zoom: 0.8; } }
+        @media (min-width: 1024px) { .invoice-scaler { zoom: 1; } }
+        @media print { .invoice-scaler { zoom: 1 !important; transform: none !important; } }
+      `}} />
+      <div className="flex justify-center w-full py-8 md:py-12 bg-muted/10 rounded-xl overflow-hidden shadow-inner">
+        <div className="invoice-scaler">
+          <div 
+            ref={contentRef}
+            data-print-area
+            className="w-[210mm] min-h-[297mm] shrink-0 bg-white shadow-2xl border border-muted print:shadow-none print:border-none print:m-0"
+          >
+             {selectedLayout === "layout-1" && <Layout1 {...templateProps} />}
+             {selectedLayout === "layout-2" && <Layout2 {...templateProps} />}
+             {selectedLayout === "layout-3" && <Layout3 {...templateProps} />}
+             {selectedLayout === "layout-4" && <Layout4 {...templateProps} />}
+             {selectedLayout === "layout-5" && <Layout5 {...templateProps} />}
+             {selectedLayout === "layout-6" && <Layout6 {...templateProps} />}
+             
+             {/* Fallback */}
+             {!["layout-1", "layout-2", "layout-3", "layout-4", "layout-5", "layout-6"].includes(selectedLayout) && <Layout1 {...templateProps} />}
+          </div>
         </div>
       </div>
       
