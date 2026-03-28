@@ -37,23 +37,19 @@ export default function InvoiceViewerPage() {
     documentTitle: `Invoice_${invoice?.invoice_number}`,
     pageStyle: `
       @page {
-        size: A4 portrait;
-        margin: 0;
+        size: auto;
+        margin: 10mm;
       }
       @media print {
         html, body {
-          width: 210mm !important;
-          height: 297mm !important;
+          width: auto !important;
+          height: auto !important;
           margin: 0 !important;
           padding: 0 !important;
-          font-size: 11px !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
           color-adjust: exact !important;
           background: white !important;
-        }
-        * {
-          box-sizing: border-box;
         }
         .invoice-scaler {
            zoom: 1 !important;
@@ -189,18 +185,19 @@ export default function InvoiceViewerPage() {
 
       {/* A4 Document Native Paper Container */}
       <style dangerouslySetInnerHTML={{__html: `
-        .invoice-scaler { zoom: 0.45; }
+        .invoice-scaler { zoom: 0.38; }
+        @media (min-width: 380px) { .invoice-scaler { zoom: 0.45; } }
         @media (min-width: 640px) { .invoice-scaler { zoom: 0.65; } }
         @media (min-width: 768px) { .invoice-scaler { zoom: 0.8; } }
         @media (min-width: 1024px) { .invoice-scaler { zoom: 1; } }
         @media print { .invoice-scaler { zoom: 1 !important; transform: none !important; } }
       `}} />
-      <div className="flex justify-center w-full py-8 md:py-12 bg-muted/10 rounded-xl overflow-hidden shadow-inner">
-        <div className="invoice-scaler">
+      <div className="flex justify-center w-full py-8 md:py-12 bg-muted/10 rounded-xl overflow-x-auto shadow-inner">
+        <div className="invoice-scaler pb-4 md:pb-0">
           <div 
             ref={contentRef}
             data-print-area
-            className="w-[210mm] min-h-[297mm] shrink-0 bg-white shadow-2xl border border-muted print:shadow-none print:border-none print:m-0"
+            className="w-[210mm] min-h-[297mm] shrink-0 bg-white shadow-2xl border border-muted print:shadow-none print:border-none print:m-0 print:w-full print:min-h-0"
           >
              {selectedLayout === "layout-1" && <Layout1 {...templateProps} />}
              {selectedLayout === "layout-2" && <Layout2 {...templateProps} />}

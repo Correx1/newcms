@@ -30,8 +30,9 @@ export async function GET() {
     const admin = createAdminClient()
     const { data: tasks, error } = await admin
       .from('tasks')
-      .select('*, projects!tasks_project_id_fkey(id, title), assignee:profiles!tasks_assignee_id_fkey(name, email)')
+      .select('*, projects!inner(id, title), assignee:profiles!tasks_assignee_id_fkey(name, email)')
       .eq('assignee_id', user.id)
+      .neq('projects.status', 'approved')
       .order('due_date', { ascending: true, nullsFirst: false })
 
     const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single()

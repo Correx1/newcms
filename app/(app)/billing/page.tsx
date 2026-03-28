@@ -72,10 +72,13 @@ export default function ClientBillingPage() {
     )
   }
 
-  // Calculate top level sums based on Real Invoices
-  const totalExpected = invoices.reduce((sum, p) => sum + Number(p.grand_total || 0), 0)
-  const totalPaid = invoices.filter(i => i.status === 'paid').reduce((sum, p) => sum + Number(p.grand_total || 0), 0)
-  const totalBalance = Math.max(0, invoices.filter(i => i.status === 'unpaid' || i.status === 'overdue').reduce((sum, p) => sum + Number(p.grand_total || 0), 0))
+  // Calculate top level sums based on Projects instead of Invoices
+  const totalExpected = projects.reduce((sum, p) => {
+    const num = parseFloat((p.price || '0').toString().replace(/[^0-9.]/g, ''))
+    return sum + (isNaN(num) ? 0 : num)
+  }, 0)
+  const totalPaid = projects.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0)
+  const totalBalance = Math.max(0, totalExpected - totalPaid)
 
   // Pagination logic Projects
   const totalPages = Math.ceil(projects.length / rowsPerPage) || 1
@@ -134,11 +137,83 @@ export default function ClientBillingPage() {
         </Card>
       </div>
 
+      {/* Legacy Data Table */}
+      <Card className="shadow-sm border-border/50 opacity-80">
+        <CardHeader className="bg-muted/10 border-b border-border/50 pb-4">
+          <CardTitle className="text-lg flex items-center gap-2">Project Ledgers </CardTitle>
+          <div className="text-sm font-medium text-muted-foreground mt-1">Financial records for all your projects projects</div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {projects.length === 0 ? (
+            <div className="text-center py-10">
+              <Receipt className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
+              <p className="text-muted-foreground">No financial records found.</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/20">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="font-semibold px-4 py-3">Project Title</TableHead>
+                      <TableHead className="font-semibold text-right py-3 w-[150px]">Amount</TableHead>
+                      <TableHead className="font-semibold text-right py-3 w-[150px]">Amount Paid</TableHead>
+                      <TableHead className="font-semibold text-right px-4 py-3 w-[150px]">Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedProjects.map((p) => {
+                      const numericPrice = parseFloat((p.price || "0").replace(/[^0-9.]/g, ''))
+                      const expected = isNaN(numericPrice) ? 0 : numericPrice
+                      const paid = Number(p.amount_paid || 0)
+                      const balance = Math.max(0, expected - paid)
+
+                      return (
+                        <TableRow key={p.id} className="group hover:bg-muted/10 cursor-pointer" onClick={() => router.push(`/projects/${p.id}`)}>
+                          <TableCell className="font-bold px-4 py-3">{p.title}</TableCell>
+                          <TableCell className="text-right py-3 font-semibold text-muted-foreground">${expected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right py-3 font-bold text-emerald-600 dark:text-emerald-400">${paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right px-4 py-3 font-bold">
+                            <span className={balance > 0 ? "text-destructive" : "text-emerald-600"}>
+                              ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination Controller */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border/50 bg-muted/5">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, projects.length)} of {projects.length} records
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" className="h-8 w-8 shadow-sm" onClick={handlePrevPage} disabled={currentPage === 1}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs font-bold w-12 text-center">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button variant="outline" size="icon" className="h-8 w-8 shadow-sm" onClick={handleNextPage} disabled={currentPage === totalPages}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Authentic Invoices Record Table */}
-      <Card className="shadow-sm border-border/50 border-primary/20 bg-card overflow-hidden">
+      <Card className="shadow-sm border-border/50 border-primary/20 bg-card overflow-hidden mt-10">
         <CardHeader className="bg-primary/5 border-b border-border/50 pb-4">
           <CardTitle className="text-lg flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Official Invoices</CardTitle>
-          <div className="text-sm font-medium text-muted-foreground mt-1">Authentic bills transmitted by Noplin CMS securely.</div>
+          <div className="text-sm font-medium text-muted-foreground mt-1">Authentic bills transmitted by Noplin Ltd.</div>
         </CardHeader>
         <CardContent className="p-0">
           {invoices.length === 0 ? (
@@ -212,77 +287,7 @@ export default function ClientBillingPage() {
         </CardContent>
       </Card>
 
-      {/* Legacy Data Table */}
-      <Card className="shadow-sm border-border/50 opacity-80 mt-10">
-        <CardHeader className="bg-muted/10 border-b border-border/50 pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">Project Ledgers <Badge variant="secondary" className="ml-2 font-black text-[10px] uppercase">Legacy</Badge></CardTitle>
-          <div className="text-sm font-medium text-muted-foreground mt-1">Track financial execution caps based directly on historical project scopes.</div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {projects.length === 0 ? (
-            <div className="text-center py-10">
-              <Receipt className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
-              <p className="text-muted-foreground">No financial records found.</p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-muted/20">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="font-semibold px-4 py-3">Project Title</TableHead>
-                      <TableHead className="font-semibold text-right py-3 w-[150px]">Amount</TableHead>
-                      <TableHead className="font-semibold text-right py-3 w-[150px]">Amount Paid</TableHead>
-                      <TableHead className="font-semibold text-right px-4 py-3 w-[150px]">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedProjects.map((p) => {
-                      const numericPrice = parseFloat((p.price || "0").replace(/[^0-9.]/g, ''))
-                      const expected = isNaN(numericPrice) ? 0 : numericPrice
-                      const paid = Number(p.amount_paid || 0)
-                      const balance = Math.max(0, expected - paid)
 
-                      return (
-                        <TableRow key={p.id} className="group hover:bg-muted/10 cursor-pointer" onClick={() => router.push(`/projects/${p.id}`)}>
-                          <TableCell className="font-bold px-4 py-3">{p.title}</TableCell>
-                          <TableCell className="text-right py-3 font-semibold text-muted-foreground">${expected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right py-3 font-bold text-emerald-600 dark:text-emerald-400">${paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right px-4 py-3 font-bold">
-                            <span className={balance > 0 ? "text-destructive" : "text-emerald-600"}>
-                              ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination Controller */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border/50 bg-muted/5">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, projects.length)} of {projects.length} records
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" className="h-8 w-8 shadow-sm" onClick={handlePrevPage} disabled={currentPage === 1}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="text-xs font-bold w-12 text-center">
-                      {currentPage} / {totalPages}
-                    </span>
-                    <Button variant="outline" size="icon" className="h-8 w-8 shadow-sm" onClick={handleNextPage} disabled={currentPage === totalPages}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }

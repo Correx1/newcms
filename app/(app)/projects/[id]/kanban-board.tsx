@@ -453,7 +453,11 @@ export default function KanbanBoard({ projectId, userRole, staffList = [], onPro
                       onValueChange={(val) => setSelectedTask({...selectedTask, assignee_id: val === "none" ? null : val})}
                     >
                       <SelectTrigger className="bg-background shadow-sm h-9">
-                        <SelectValue placeholder="Unassigned" />
+                        <SelectValue placeholder="Unassigned">
+                          {selectedTask.assignee_id && selectedTask.assignee_id !== "none" 
+                             ? staffList.find(s => s.id === selectedTask.assignee_id)?.name || "Unknown User"
+                             : "Unassigned"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none" className="text-muted-foreground italic">Unassigned</SelectItem>

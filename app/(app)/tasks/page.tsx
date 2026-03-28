@@ -1,12 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import { Button } from "@/components/ui/button"
 import { FolderKanban, GripVertical, Trash2, Loader2, Check, Flag, ListChecks, Clock, Edit2 } from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -48,13 +48,23 @@ export default function MyGlobalTasksPage() {
   const [userRole, setUserRole] = useState<string>('')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  
+  // Active Project View
+  const [activeProjectId, setActiveProjectId] = useState<string>("")
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch(`/api/tasks`, { credentials: 'include' })
     if (res.ok) {
       const data = await res.json()
-      setTasks(data.tasks || [])
+      const fetchedTasks = data.tasks || []
+      setTasks(fetchedTasks)
       setUserRole(String(data.role || '').toLowerCase())
+      
+      // Default to first project if available
+      if (fetchedTasks.length > 0) {
+         const firstProjId = Array.from(new Set(fetchedTasks.map((t: Task) => t.project_id)))[0] as string
+         setActiveProjectId(firstProjId)
+      }
     }
     setLoading(false)
   }, [])
@@ -72,13 +82,17 @@ export default function MyGlobalTasksPage() {
     const destStatus = destination.droppableId as Task['status']
 
     const newTasks = Array.from(tasks)
-    const draggedTask = newTasks.find(t => t.id === draggableId)
-    if (!draggedTask) return
+    const draggedTaskIndex = newTasks.findIndex(t => t.id === draggableId)
+    if (draggedTaskIndex === -1) return
+    
+    const draggedTask = newTasks[draggedTaskIndex]
+    const projectId = draggedTask.project_id
 
     draggedTask.status = destStatus
-    newTasks.splice(newTasks.findIndex(t => t.id === draggableId), 1)
+    newTasks.splice(draggedTaskIndex, 1)
 
-    const destTasks = newTasks.filter(t => t.status === destStatus).sort((a, b) => a.order - b.order)
+    // Reorder scoped by project
+    const destTasks = newTasks.filter(t => t.status === destStatus && t.project_id === projectId).sort((a, b) => a.order - b.order)
     destTasks.splice(destination.index, 0, draggedTask)
 
     const updates: { id: string; status: string; order: number }[] = []
@@ -87,18 +101,21 @@ export default function MyGlobalTasksPage() {
       updates.push({ id: t.id, status: destStatus, order: i })
     })
 
-    setTasks([...newTasks.filter(t => t.status !== destStatus), ...destTasks])
+    // Update global state but isolate replacement to this project+status
+    setTasks([
+      ...newTasks.filter(t => !(t.status === destStatus && t.project_id === projectId)), 
+      ...destTasks
+    ])
     
-    // We send patches to EACH specific project endpoint since this is a global view
+    // We send patches to the specific project endpoints for the updated elements
     for (const update of updates) {
-      const taskObj = [...newTasks.filter(t => t.status !== destStatus), ...destTasks].find(t => t.id === update.id)
+      const taskObj = [...newTasks.filter(t => !(t.status === destStatus && t.project_id === projectId)), ...destTasks].find(t => t.id === update.id)
       if (!taskObj) continue
       
-      // Hit the specific taskId PATCH endpoint for the update
       await fetch(`/api/projects/${taskObj.project_id}/tasks/${taskObj.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: update.status, order: update.order }) // only updating status and order here natively per drag
+        body: JSON.stringify({ status: update.status, order: update.order })
       })
     }
   }
@@ -168,15 +185,64 @@ export default function MyGlobalTasksPage() {
 
   const canEditDetails = userRole === 'admin'
 
+  // Group tasks by project
+  const tasksByProject = tasks.reduce((acc, task) => {
+    const pId = task.project_id
+    if (!acc[pId]) {
+      acc[pId] = {
+        project: task.projects,
+        tasks: []
+      }
+    }
+    acc[pId].tasks.push(task)
+    return acc
+  }, {} as Record<string, { project: ProjectData | null | undefined, tasks: Task[] }>)
+
+  const groupedProjects = Object.values(tasksByProject)
+  
+  const activeGroup = tasksByProject[activeProjectId]
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
+      <div className="flex flex-col space-y-4 md:space-y-6">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">My Tasks Board</h2>
           <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
-            <Check className="h-4 w-4 text-primary" /> Here is everything currently assigned to you across all active projects.
+            <Check className="h-4 w-4 text-primary" /> Here is everything currently assigned to you.
           </p>
         </div>
+        
+        {/* Project Selector Horizontal Tabs */}
+        {groupedProjects.length > 0 && (
+          <div className="w-full relative">
+            <div className="flex items-center gap-3 overflow-x-auto pb-4 pt-1 snap-x scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent pr-8">
+              {groupedProjects.map((g, idx) => {
+                const isSelected = activeProjectId === g.project?.id
+                return (
+                  <button
+                    key={g.project?.id || idx}
+                    onClick={() => setActiveProjectId(g.project?.id || '')}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all shrink-0 snap-start shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      isSelected 
+                        ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/20 scale-[1.02]" 
+                        : "bg-background text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:border-primary/50"
+                    )}
+                  >
+                    <FolderKanban className={cn("h-4 w-4", isSelected ? "text-primary-foreground/80" : "text-muted-foreground/70")} />
+                    <span className="truncate max-w-[150px]">{g.project?.title || "Unknown Project"}</span>
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded-full text-[10px] font-bold ml-1 flex items-center justify-center min-w-[20px] shadow-sm",
+                      isSelected ? "bg-background/20 text-primary-foreground" : "bg-muted border text-muted-foreground"
+                    )}>
+                      {g.tasks.length}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -184,14 +250,24 @@ export default function MyGlobalTasksPage() {
            <Loader2 className="h-8 w-8 animate-spin text-primary" />
            <p className="text-sm font-semibold tracking-widest uppercase">Loading my tasks...</p>
         </div>
+      ) : !activeGroup ? (
+        <div className="py-24 flex flex-col items-center justify-center space-y-4 text-muted-foreground border-2 border-dashed rounded-xl">
+           <FolderKanban className="h-12 w-12 text-muted-foreground/50" />
+           <p className="text-lg font-semibold tracking-tight">Select a project to view its tasks.</p>
+        </div>
       ) : (
-        <div className="pt-4 h-[calc(100vh-160px)]">
+        <div className="pt-4 space-y-6">
+          <div className="flex items-center gap-3 pb-2 border-b border-border/50">
+            <h3 className="text-2xl font-black tracking-tight">{activeGroup.project?.title || "Undefined Project"}</h3>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-muted/60 border text-muted-foreground shadow-sm">{activeGroup.tasks.length} {activeGroup.tasks.length === 1 ? 'task' : 'tasks'}</span>
+          </div>
+          
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full">
               {columns.map(col => {
-                const colTasks = tasks.filter(t => t.status === col.id).sort((a, b) => a.order - b.order)
+                const colTasks = activeGroup.tasks.filter(t => t.status === col.id).sort((a, b) => a.order - b.order)
                 return (
-                  <div key={col.id} className={cn("rounded-xl border flex flex-col h-[75vh] min-h-[500px] overflow-hidden shadow-sm", col.color)}>
+                  <div key={col.id} className={cn("rounded-xl border flex flex-col min-h-[500px] h-[65vh] overflow-hidden shadow-sm", col.color)}>
                     <div className="px-5 py-4 flex items-center justify-between border-b bg-background/60 backdrop-blur-sm shrink-0">
                       <h3 className="font-bold text-sm text-foreground/80">{col.title}</h3>
                       <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-background border shadow-sm">{colTasks.length}</span>
@@ -215,7 +291,7 @@ export default function MyGlobalTasksPage() {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   onClick={() => { setSelectedTask(task); setIsEditModalOpen(true); }}
-                                  className={cn("bg-background border rounded-lg shadow-sm transition-all relative group cursor-pointer hover:shadow-md", snapshot.isDragging ? "shadow-md ring-2 ring-primary/20 scale-[1.03]" : "hover:border-primary/40")}
+                                  className={cn("bg-background border rounded-lg shadow-sm transition-all relative group cursor-pointer hover:shadow-md", snapshot.isDragging ? "shadow-md ring-2 ring-primary/20 scale-[1.03] z-50" : "hover:border-primary/40")}
                                   style={provided.draggableProps.style}
                                 >
                                   <div className="p-4 flex flex-col gap-3">
@@ -226,30 +302,25 @@ export default function MyGlobalTasksPage() {
                                         </div>
                                         <div className="flex-1 min-w-0 pr-4 space-y-1">
                                           <p className="text-[14px] font-bold text-foreground/90 wrap-break-word leading-snug">{task.title}</p>
-                                          {task.projects && (
-                                              <p className="text-[10px] font-bold uppercase tracking-wider text-primary/80 flex items-center gap-1.5 truncate pr-2">
-                                                <FolderKanban className="h-3 w-3" /> {task.projects.title}
-                                              </p>
-                                          )}
                                         </div>
                                       </div>
                                     </div>
                                     
                                     <div className="flex items-center flex-wrap gap-2 text-xs">
-                                      <span className={cn("px-1.5 py-0.5 border rounded-md font-semibold text-[10px] uppercase flex items-center gap-1", getPriorityColor(task.priority))}>
+                                      <span className={cn("px-1.5 py-0.5 border rounded-md font-semibold text-[10px] uppercase flex items-center gap-1 shadow-sm", getPriorityColor(task.priority))}>
                                         <Flag className="h-2.5 w-2.5" />
                                         {task.priority || 'Medium'}
                                       </span>
 
                                       {totalSubtasks > 0 && (
-                                        <span className={cn("flex items-center gap-1 font-medium", completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-muted-foreground")}>
+                                        <span className={cn("flex items-center gap-1 font-bold", completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-muted-foreground")}>
                                           <ListChecks className="h-3.5 w-3.5" />
                                           {completedSubtasks}/{totalSubtasks}
                                         </span>
                                       )}
 
                                       {task.due_date && (
-                                        <span className={cn("flex items-center gap-1 font-medium bg-muted/40 px-1.5 py-0.5 rounded border border-border/50", new Date(task.due_date) < new Date() && col.id !== 'done' ? "text-destructive border-destructive/20 bg-destructive/5" : "text-muted-foreground")}>
+                                        <span className={cn("flex items-center gap-1 font-bold bg-muted/40 px-1.5 py-0.5 rounded border border-border/50", new Date(task.due_date) < new Date() && col.id !== 'done' ? "text-destructive border-destructive/20 bg-destructive/5" : "text-muted-foreground")}>
                                           <Clock className="h-3 w-3" />
                                           {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                         </span>

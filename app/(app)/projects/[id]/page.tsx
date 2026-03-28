@@ -301,27 +301,31 @@ export default function ProjectDetailsPage() {
           )}
           
           {/* Real-time Project Tasks Automation Progress Bar */}
-          <div className="bg-background/80 p-3 rounded-lg border border-border/50 shadow-sm w-full animate-in fade-in">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <FolderKanban className="h-3.5 w-3.5" /> Task Progress
-              </span>
-              <span className="text-sm font-black text-primary">{taskProgress}%</span>
+          {user?.role !== "client" && (
+            <div className="bg-background/80 p-3 rounded-lg border border-border/50 shadow-sm w-full animate-in fade-in">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <FolderKanban className="h-3.5 w-3.5" /> Task Progress
+                </span>
+                <span className="text-sm font-black text-primary">{taskProgress}%</span>
+              </div>
+              <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
+                <div 
+                  className={cn("h-full transition-all duration-700 ease-out", taskProgress === 100 ? "bg-emerald-500" : "bg-primary")} 
+                  style={{ width: `${taskProgress}%` }} 
+                />
+              </div>
             </div>
-            <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
-              <div 
-                className={cn("h-full transition-all duration-700 ease-out", taskProgress === 100 ? "bg-emerald-500" : "bg-primary")} 
-                style={{ width: `${taskProgress}%` }} 
-              />
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full mb-6 mt-4">
         <TabsList className="mb-6 p-1 bg-muted/30 border border-border/50">
           <TabsTrigger value="overview" className="font-semibold px-4">Overview</TabsTrigger>
-          <TabsTrigger value="tasks" className="font-semibold px-4"><FolderKanban className="w-3.5 h-3.5 mr-1.5" /> Tasks Board</TabsTrigger>
+          {user?.role !== "client" && (
+            <TabsTrigger value="tasks" className="font-semibold px-4"><FolderKanban className="w-3.5 h-3.5 mr-1.5" /> Tasks Board</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 outline-none mt-0">
@@ -471,29 +475,31 @@ export default function ProjectDetailsPage() {
                 )}
               </div>
               
-              <div className="space-y-2 pt-2 border-t border-border/50">
-                <span className="text-xs text-muted-foreground uppercase font-semibold">Assigned Staff</span>
-                <div className="flex flex-col gap-2">
-                  {project.assignments?.length > 0 ? project.assignments.map((a: any) => {
-                    const s = a.profiles;
-                    if(!s) return null;
-                    return (
-                    <div key={s.id} className="flex items-center justify-between text-sm font-medium bg-muted/40 p-2 rounded-md border border-border/50">
-                      <div className="flex items-center">
-                        <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                        {s.name}
+              {user?.role !== "client" && (
+                <div className="space-y-2 pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground uppercase font-semibold">Assigned Staff</span>
+                  <div className="flex flex-col gap-2">
+                    {project.assignments?.length > 0 ? project.assignments.map((a: any) => {
+                      const s = a.profiles;
+                      if(!s) return null;
+                      return (
+                      <div key={s.id} className="flex items-center justify-between text-sm font-medium bg-muted/40 p-2 rounded-md border border-border/50">
+                        <div className="flex items-center">
+                          <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                          {s.name}
+                        </div>
+                        {user?.role === "admin" && Number(a.earnings || 0) > 0 && (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10.5px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors cursor-default" title="Internal staff expected pay">
+                            ${Number(a.earnings).toLocaleString()}
+                          </span>
+                        )}
                       </div>
-                      {user?.role === "admin" && Number(a.earnings || 0) > 0 && (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10.5px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors cursor-default" title="Internal staff expected pay">
-                          ${Number(a.earnings).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  )}) : (
-                    <span className="text-sm text-muted-foreground italic"></span>
-                  )}
+                    )}) : (
+                      <span className="text-sm text-muted-foreground italic"></span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -694,10 +700,12 @@ export default function ProjectDetailsPage() {
         </Card>
       )}
         </TabsContent>
-
-        <TabsContent value="tasks" className="outline-none mt-0 min-h-[500px]">
-          <KanbanBoard projectId={projectId} userRole={user?.role || ""} staffList={assignedProfiles} onProgressUpdate={setTaskProgress} projectOverview={project?.details} projectDeliverables={project?.deliverables} />
-        </TabsContent>
+        
+        {user?.role !== "client" && (
+          <TabsContent value="tasks" className="outline-none mt-0 min-h-[500px]">
+            <KanbanBoard projectId={projectId} userRole={user?.role || ""} staffList={assignedProfiles} onProgressUpdate={setTaskProgress} projectOverview={project?.details} projectDeliverables={project?.deliverables} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Identical Completion Editor for Modifications during Review cycle */}

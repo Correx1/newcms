@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { ArrowLeft, Mail, Shield, CheckCircle2, FolderKanban, Briefcase, DollarSign, Activity, AlertCircle, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DetailSkeleton } from "@/components/ui/page-skeleton"
 
 export default function StaffProfilePage() {
@@ -70,10 +70,15 @@ export default function StaffProfilePage() {
     assignment_id: a.id,
     expected_earnings: Number(a.earnings) || 0,
     amount_paid: Number(a.amount_paid) || 0,
+    staff_payment_logs: a.staff_payment_logs || [],
   })).filter(Boolean) || []
   
   const assignedProjects = allProjects.filter((p: any) => p.status !== "completed" && p.status !== "approved")
   const completedProjects = allProjects.filter((p: any) => p.status === "completed" || p.status === "approved")
+
+  const allLogs = allProjects
+    .flatMap((p: any) => (p.staff_payment_logs || []).map((log: any) => ({ ...log, projectTitle: p.title, projectId: p.id })))
+    .sort((a: { payment_date: string | number | Date }, b: { payment_date: string | number | Date }) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
 
   const jobTitle = staff.job_title || (staff.role === "admin" ? "Admin" : "Staff")
 
@@ -142,7 +147,7 @@ export default function StaffProfilePage() {
 
   return (
     <>
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -164,8 +169,8 @@ export default function StaffProfilePage() {
         )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-1 space-y-6">
+      <div className="grid gap-6 md:grid-cols-3 min-w-0">
+        <div className="md:col-span-1 space-y-6 min-w-0">
           <Card className="shadow-sm border-border/50">
             <CardContent className="pt-6 flex flex-col items-center text-center">
               <div className="h-24 w-24 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-3xl ring-4 ring-primary/5 shadow-sm mb-4 border border-primary/20">
@@ -179,9 +184,9 @@ export default function StaffProfilePage() {
               <div className="w-full border-t border-border/50 mt-6 pt-6 space-y-4 text-left">
                 <div className="space-y-1">
                   <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Email</span>
-                  <div className="flex items-center text-sm font-semibold truncate">
-                    <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {staff.email}
+                  <div className="flex items-start text-sm font-semibold">
+                    <Mail className="mr-2 h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <span className="break-all">{staff.email}</span>
                   </div>
                 </div>
                 <div className="space-y-1 pt-2 border-t border-border/50">
@@ -204,17 +209,17 @@ export default function StaffProfilePage() {
                 return (
                   <div className="w-full border-t border-border/50 mt-4 pt-5 space-y-3">
                     <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">Earnings Overview</span>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground font-medium">Expected</span>
-                      <span className="font-bold">${totalExpected.toLocaleString()}</span>
+                    <div className="flex justify-between items-center text-sm gap-2">
+                      <span className="text-muted-foreground font-medium shrink-0">Expected</span>
+                      <span className="font-bold truncate">${totalExpected.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-emerald-600/80 font-medium">Processed</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">${totalPaid.toLocaleString()}</span>
+                    <div className="flex justify-between items-center text-sm gap-2">
+                      <span className="text-emerald-600/80 font-medium shrink-0">Processed</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 truncate">${totalPaid.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm border-t border-border/50 pt-2 mt-1">
-                      <span className="font-bold">Balance</span>
-                      <span className={`font-black text-base ${totalBalance > 0 ? 'text-amber-500' : 'text-emerald-600'}`}>${totalBalance.toLocaleString()}</span>
+                    <div className="flex justify-between items-center text-sm border-t border-border/50 pt-2 mt-1 gap-2">
+                      <span className="font-bold shrink-0">Balance</span>
+                      <span className={`font-black text-base truncate ${totalBalance > 0 ? 'text-amber-500' : 'text-emerald-600'}`}>${totalBalance.toLocaleString()}</span>
                     </div>
                     {/* Mini progress bar */}
                     {totalExpected > 0 && (
@@ -230,9 +235,50 @@ export default function StaffProfilePage() {
               })()}
             </CardContent>
           </Card>
+
+          {/* RECENT PAYOUTS SMALL CARD */}
+          {user?.role === "admin" && allLogs.length > 0 && (
+            <Card className="shadow-sm border-border/50 bg-background">
+              <CardHeader className="pb-3 border-b border-border/50 bg-muted/5">
+                <CardTitle className="flex items-center gap-2 text-md">
+                  <Activity className="h-4 w-4 text-muted-foreground" /> Recent Payouts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="flex flex-col divide-y divide-border/50">
+                  {allLogs.slice(0, 10).map((log: any) => (
+                    <div key={log.id} className="p-3 flex flex-col justify-between group bg-background">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="space-y-1 overflow-hidden pr-2 min-w-0">
+                          <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase truncate">{new Date(log.payment_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          <p className="text-sm font-bold truncate">{log.projectTitle}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            +${Number(log.amount).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      </div>
+                      {log.notes && (
+                        <p className="mt-2 text-[11px] italic text-muted-foreground border-l-2 border-border/50 pl-2">
+                          {log.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {allLogs.length > 10 && (
+                    <div className="p-3 text-center bg-muted/5 border-t border-border/50">
+                      <span className="text-xs font-bold text-muted-foreground">Showing 10 of {allLogs.length}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
 
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-6 min-w-0">
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4 border-b border-border/50 bg-muted/5">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -242,56 +288,67 @@ export default function StaffProfilePage() {
             </CardHeader>
             <CardContent className="pt-6">
               {assignedProjects.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {assignedProjects.map((p: any) => (
-                    <Link key={p.id} href={`/projects/${p.id}`} className="block">
-                      <div className="border border-border/50 rounded-lg p-3 shadow-sm bg-background flex flex-col justify-between group h-full">
-                        <div className="font-bold group-hover:text-primary transition-colors text-base underline-offset-4">{p.title}</div>
-                        
-                        <div className="text-xs text-muted-foreground mt-2 flex items-center justify-between font-semibold">
-                          <span>Limit: {p.deadline ? p.deadline.split('T')[0] : "None"}</span>
-                          <Badge variant="outline" className="capitalize text-[10px] bg-background">{p.status}</Badge>
-                        </div>
-
-                        {(user?.role === "admin" || p.expected_earnings > 0) && (
-                          <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2 pb-1">
-                             <div className="flex justify-between items-center text-xs font-semibold">
-                               <span className="text-muted-foreground">Expected Pay</span>
-                               <span>${p.expected_earnings.toLocaleString()}</span>
-                             </div>
-                             <div className="flex justify-between items-center text-xs font-semibold">
-                               <span className="text-emerald-600/80">Processed</span>
-                               <span className="text-emerald-600">${p.amount_paid.toLocaleString()}</span>
-                             </div>
-                             <div className="flex justify-between items-center text-xs font-bold pt-1 border-t border-border/30">
-                               <span>Balance</span>
-                               <span className={p.expected_earnings - p.amount_paid > 0 ? 'text-amber-500' : 'text-emerald-600'}>
-                                 ${(p.expected_earnings - p.amount_paid).toLocaleString()}
-                               </span>
-                             </div>
-
-                             {user?.role === "admin" && p.staff_payment_logs && p.staff_payment_logs.length > 0 && (
-                               <div className="mt-2 space-y-1 bg-muted/30 p-1.5 rounded-md border border-border/50 max-h-24 overflow-y-auto">
-                                 {p.staff_payment_logs.sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).map((log:any) => (
-                                   <div key={log.id} className="flex justify-between items-center text-[10px] font-medium border-b border-border/30 last:border-0 pb-1 last:pb-0">
-                                     <span className="text-emerald-600 dark:text-emerald-400 font-bold">+${Number(log.amount).toLocaleString()}</span>
-                                     <span className="text-muted-foreground truncate ml-2 mr-2 max-w-[80px]" title={log.notes}>{log.notes || "No notes"}</span>
-                                     <span className="text-muted-foreground shrink-0">{new Date(log.payment_date).toLocaleDateString()}</span>
-                                   </div>
-                                 ))}
-                               </div>
-                             )}
-                          </div>
+                <div>
+                  <Table>
+                    <TableHeader className="bg-muted/10 border-b border-border/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 pl-4">Project</TableHead>
+                        {(user?.role === "admin" || assignedProjects.some((p:any)=>p.expected_earnings>0)) && (
+                          <>
+                            <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 text-right hidden sm:table-cell">Expected</TableHead>
+                            <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 text-right hidden sm:table-cell">Processed</TableHead>
+                            <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 text-right">Balance</TableHead>
+                          </>
                         )}
-
-                        {user?.role === "admin" && (
-                          <Button size="sm" variant="outline" className="w-full mt-3 h-8 text-[11px] font-bold shadow-sm bg-background hover:bg-muted" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openPayoutModal(p) }}>
-                            <DollarSign className="h-3 w-3 mr-1.5 text-muted-foreground" /> Manage Payout
-                          </Button>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
+                        <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 pr-4 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {assignedProjects.map((p: any) => (
+                        <TableRow key={p.id} className="group hover:bg-muted/10 border-border/50 transition-colors cursor-pointer" onClick={() => router.push(`/projects/${p.id}`)}>
+                          <TableCell className="py-4 pl-4 align-top w-full">
+                            <div className="font-bold text-base md:text-md underline-offset-4 group-hover:text-primary transition-colors">{p.title}</div>
+                            <div className="text-xs text-muted-foreground mt-2 flex flex-wrap items-center gap-2 font-semibold">
+                              <span>Limit: {p.deadline ? p.deadline.split('T')[0] : "None"}</span>
+                              <Badge variant="outline" className="capitalize text-[10px] bg-background shadow-sm truncate">{p.status}</Badge>
+                            </div>
+                          </TableCell>
+                          
+                          {(user?.role === "admin" || p.expected_earnings > 0) ? (
+                            <>
+                              <TableCell className="py-4 align-top text-right font-semibold text-muted-foreground hidden sm:table-cell">
+                                ${p.expected_earnings.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="py-4 align-top text-right font-bold text-emerald-600 dark:text-emerald-400 hidden sm:table-cell">
+                                ${p.amount_paid.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="py-4 align-top text-right font-bold">
+                                <span className={p.expected_earnings - p.amount_paid > 0 ? 'text-amber-500' : 'text-emerald-600'}>
+                                  ${(p.expected_earnings - p.amount_paid).toLocaleString()}
+                                </span>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell colSpan={3} className="py-4 align-middle text-center text-muted-foreground text-xs italic">
+                                Financials restricted
+                              </TableCell>
+                            </>
+                          )}
+                          
+                          <TableCell className="py-4 pr-4 align-top text-right">
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              {user?.role === "admin" && (
+                                <Button size="sm" variant="outline" className="h-8 text-[11px] font-bold shadow-sm bg-background hover:bg-muted w-full sm:w-[110px]" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openPayoutModal(p) }}>
+                                  <DollarSign className="h-3 w-3 mr-1.5 text-muted-foreground" /> Manage
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
                 <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 border-border/50">
@@ -302,61 +359,76 @@ export default function StaffProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-border/50 opacity-90 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500/50"></div>
+          <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4 border-b border-border/50 bg-muted/5">
-              <CardTitle className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-lg">
-                <CheckCircle2 className="h-5 w-5" /> Completed Projects
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CheckCircle2 className="h-5 w-5 text-primary" /> Completed Projects
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               {completedProjects.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {completedProjects.map((p: any) => (
-                    <Link key={p.id} href={`/projects/${p.id}`} className="block">
-                      <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-lg p-3 shadow-sm flex flex-col justify-between group h-full">
-                        <div className="font-bold text-emerald-700 dark:text-emerald-300 group-hover:underline transition-colors">{p.title}</div>
-                        
-                        {(user?.role === "admin" || p.expected_earnings > 0) && (
-                          <div className="mt-3 space-y-1.5 border-t border-emerald-500/20 pt-2">
-                             <div className="flex justify-between items-center text-xs font-semibold">
-                               <span className="text-muted-foreground">Volume</span>
-                               <span>${p.expected_earnings.toLocaleString()}</span>
-                             </div>
-                             <div className="flex justify-between items-center text-xs font-semibold">
-                               <span className="text-emerald-600/70 dark:text-emerald-400">Processed</span>
-                               <span className="text-emerald-600 dark:text-emerald-400">${p.amount_paid.toLocaleString()}</span>
-                             </div>
-                             <div className="flex justify-between items-center text-xs font-bold pt-1 border-t border-emerald-500/10">
-                               <span>Balance</span>
-                               <span className={p.expected_earnings - p.amount_paid > 0 ? 'text-amber-500' : 'text-emerald-600'}>
-                                 ${(p.expected_earnings - p.amount_paid).toLocaleString()}
-                               </span>
-                             </div>
-
-                             {user?.role === "admin" && p.staff_payment_logs && p.staff_payment_logs.length > 0 && (
-                               <div className="mt-2 space-y-1 bg-emerald-500/5 p-1.5 rounded-md border border-emerald-500/10 max-h-24 overflow-y-auto">
-                                 {p.staff_payment_logs.sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).map((log:any) => (
-                                   <div key={log.id} className="flex justify-between items-center text-[10px] font-medium border-b border-emerald-500/10 last:border-0 pb-1 last:pb-0">
-                                     <span className="text-emerald-600 dark:text-emerald-400 font-bold">+${Number(log.amount).toLocaleString()}</span>
-                                     <span className="text-muted-foreground truncate ml-2 mr-2 max-w-[80px]" title={log.notes}>{log.notes || "No notes"}</span>
-                                     <span className="text-muted-foreground shrink-0">{new Date(log.payment_date).toLocaleDateString()}</span>
-                                   </div>
-                                 ))}
-                               </div>
-                             )}
-                          </div>
+                <div>
+                  <Table>
+                    <TableHeader className="bg-muted/10 border-b border-border/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 pl-4">Project</TableHead>
+                        {(user?.role === "admin" || completedProjects.some((p:any)=>p.expected_earnings>0)) && (
+                          <>
+                            <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 text-right hidden sm:table-cell">Expected</TableHead>
+                            <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 text-right hidden sm:table-cell">Processed</TableHead>
+                            <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 text-right">Balance</TableHead>
+                          </>
                         )}
-                        
-                        {user?.role === "admin" && (
-                          <Button size="sm" variant="outline" className="w-full mt-3 h-8 text-[11px] font-bold border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openPayoutModal(p) }}>
-                            <DollarSign className="h-3 w-3 mr-1.5" /> Manage Payout
-                          </Button>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                  </div>
+                        <TableHead className="font-semibold text-xs tracking-wider uppercase py-3 pr-4 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {completedProjects.map((p: any) => (
+                        <TableRow key={p.id} className="group hover:bg-muted/10 border-border/50 transition-colors cursor-pointer" onClick={() => router.push(`/projects/${p.id}`)}>
+                          <TableCell className="py-4 pl-4 align-top w-full">
+                            <div className="font-bold text-base md:text-md underline-offset-4 group-hover:text-primary transition-colors">{p.title}</div>
+                            <div className="text-xs text-muted-foreground mt-2 flex flex-wrap items-center gap-2 font-semibold">
+                              <span>Limit: {p.deadline ? p.deadline.split('T')[0] : "None"}</span>
+                              <Badge variant="outline" className="capitalize text-[10px] bg-background shadow-sm truncate">{p.status}</Badge>
+                            </div>
+                          </TableCell>
+                          
+                          {(user?.role === "admin" || p.expected_earnings > 0) ? (
+                            <>
+                              <TableCell className="py-4 align-top text-right font-semibold text-muted-foreground hidden sm:table-cell">
+                                ${p.expected_earnings.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="py-4 align-top text-right font-bold text-emerald-600 dark:text-emerald-400 hidden sm:table-cell">
+                                ${p.amount_paid.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="py-4 align-top text-right font-bold">
+                                <span className={p.expected_earnings - p.amount_paid > 0 ? 'text-amber-500' : 'text-emerald-600'}>
+                                  ${(p.expected_earnings - p.amount_paid).toLocaleString()}
+                                </span>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell colSpan={3} className="py-4 align-middle text-center text-muted-foreground text-xs italic">
+                                Financials restricted
+                              </TableCell>
+                            </>
+                          )}
+                          
+                          <TableCell className="py-4 pr-4 align-top text-right">
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              {user?.role === "admin" && (
+                                <Button size="sm" variant="outline" className="h-8 text-[11px] font-bold shadow-sm bg-background border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 w-full sm:w-[110px]" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openPayoutModal(p) }}>
+                                  <DollarSign className="h-3 w-3 mr-1.5" /> Manage
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic font-medium">No completed projects yet.</p>
                 )}
@@ -366,6 +438,9 @@ export default function StaffProfilePage() {
         </div>
       </div>
 
+
+
+      
       <Dialog open={payoutModalOpen} onOpenChange={setPayoutModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
