@@ -11,7 +11,7 @@ import { AppSidebar } from "./app-sidebar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 interface Notification {
   id: string
@@ -25,6 +25,7 @@ interface Notification {
 export function AppHeader() {
   const { user } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = createClient()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -132,10 +133,10 @@ export function AppHeader() {
               <DropdownMenuContent align="end" className="w-80">
                 <DropdownMenuLabel className="font-semibold text-sm">Live Notifications</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <div className="max-h-[300px] overflow-y-auto">
+                <div className="max-h-[340px] overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground italic">No new notifications</div>
-                  ) : notifications.map(n => (
+                  ) : notifications.slice(0, 6).map(n => (
                      <DropdownMenuItem 
                         key={n.id} 
                         onClick={() => markAsRead(n.id)}
@@ -159,8 +160,13 @@ export function AppHeader() {
                   ))}
                 </div>
                 <DropdownMenuSeparator />
-                <div onClick={markAllAsRead} className="w-full text-center p-2 text-xs font-medium text-primary hover:underline cursor-pointer">
-                  Mark all as read
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div onClick={() => router.push('/notifications')} className="text-xs font-semibold text-primary hover:underline cursor-pointer">
+                    View all notifications
+                  </div>
+                  <div onClick={markAllAsRead} className="text-xs font-medium text-muted-foreground hover:underline cursor-pointer">
+                    Mark all read
+                  </div>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
