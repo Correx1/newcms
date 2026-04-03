@@ -70,7 +70,10 @@ export default function SettingsHub() {
     ai_prompt_overview: "",
     ai_prompt_deliverables: "",
     ai_prompt_kanban_tasks: "",
-    invoice_template_id: "layout-1"
+    invoice_template_id: "layout-1",
+    resend_api_key: "",
+    resend_sender_identity: "",
+    resend_reply_domain: ""
   })
 
   const [uploadingField, setUploadingField] = useState<string | null>(null)
@@ -146,7 +149,10 @@ export default function SettingsHub() {
             ai_prompt_overview: dbSettings.ai_prompt_overview || "",
             ai_prompt_deliverables: dbSettings.ai_prompt_deliverables || "",
             ai_prompt_kanban_tasks: dbSettings.ai_prompt_kanban_tasks || "",
-            invoice_template_id: dbSettings.invoice_template_id || "layout-1"
+            invoice_template_id: dbSettings.invoice_template_id || "layout-1",
+            resend_api_key: dbSettings.resend_api_key || "",
+            resend_sender_identity: dbSettings.resend_sender_identity || "",
+            resend_reply_domain: dbSettings.resend_reply_domain || ""
           })
         }
       }
@@ -221,6 +227,7 @@ export default function SettingsHub() {
         <TabsList className="bg-muted/50 w-full justify-start rounded-md h-auto p-1 overflow-x-auto flex-nowrap">
           <TabsTrigger value="general" className="rounded-sm data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 py-2">General</TabsTrigger>
           <TabsTrigger value="ai" className="rounded-sm data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 py-2">AI Configuration</TabsTrigger>
+          <TabsTrigger value="email" className="rounded-sm data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 py-2">Email Engine</TabsTrigger>
           <TabsTrigger value="invoice" className="rounded-sm data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 py-2">Invoice Templates</TabsTrigger>
         </TabsList>
         
@@ -405,6 +412,53 @@ export default function SettingsHub() {
           </Card>
         </TabsContent>
 
+
+        {/* =================== EMAIL ENGINE TAB =================== */}
+        <TabsContent value="email" className="space-y-4">
+          <Card className="border-muted shadow-none">
+            <CardHeader>
+              <CardTitle>Email & CRM Configuration</CardTitle>
+              <CardDescription>Setup Resend to natively send and receive functional emails directly to Leads.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2 max-w-lg">
+                <Label>Resend API Key</Label>
+                <div className="flex relative">
+                   <Input 
+                     type="password"
+                     placeholder="re_..." 
+                     value={settings.resend_api_key}
+                     onChange={(e) => setSettings({...settings, resend_api_key: e.target.value})}
+                     className="font-mono text-sm"
+                   />
+                </div>
+                <p className="text-xs text-muted-foreground font-medium">Keep this private. It gives the CMS power to construct and send real emails.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
+                <div className="space-y-2">
+                  <Label>Sender Identity</Label>
+                  <Input 
+                    placeholder="E.g., Noplin Team <hello@noplincms.com>" 
+                    value={settings.resend_sender_identity}
+                    onChange={(e) => setSettings({...settings, resend_sender_identity: e.target.value})}
+                  />
+                  <p className="text-[10px] text-muted-foreground/80 font-bold uppercase tracking-wider">Default Outbound Mask</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Inbound Subdomain</Label>
+                  <Input 
+                    placeholder="E.g., reply.noplincms.com" 
+                    value={settings.resend_reply_domain}
+                    onChange={(e) => setSettings({...settings, resend_reply_domain: e.target.value})}
+                  />
+                  <p className="text-[10px] text-muted-foreground/80 font-bold uppercase tracking-wider">Required for Syncing Client Replies</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* =================== INVOICE TAB =================== */}
         <TabsContent value="invoice" className="space-y-4">

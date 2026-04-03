@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { ArrowLeft, Target, Mail, Phone, Building2, Briefcase, UserCheck, StickyNote, Send, Loader2, ExternalLink, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -47,6 +49,10 @@ export default function LeadDetailPage() {
   const [converting, setConverting] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [emailSubject, setEmailSubject] = useState("")
+  const [emailBody, setEmailBody] = useState("")
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   // Editable fields
   const [stage, setStage] = useState("")
@@ -102,6 +108,27 @@ export default function LeadDetailPage() {
       toast.error("Failed to add note")
     }
     setAddingNote(false)
+  }
+
+  const handleSendEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) return
+    setSendingEmail(true)
+    const res = await window.fetch(`/api/admin/leads/${leadId}/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ subject: emailSubject, body: emailBody }),
+    })
+    if (res.ok) {
+      toast.success("Email sent to lead!")
+      setEmailSubject("")
+      setEmailBody("")
+      fetch()
+    } else {
+      const { error } = await res.json()
+      toast.error(error || "Failed to send email")
+    }
+    setSendingEmail(false)
   }
 
   const handleDelete = async () => {
@@ -272,54 +299,102 @@ export default function LeadDetailPage() {
             </Card>
           )}
 
-          {/* Notes */}
+          {/* Notes & Communication */}
           <Card className="shadow-sm border-border/50">
-            <CardHeader className="pb-3 border-b border-border/50 bg-muted/5">
-              <CardTitle className="text-base flex items-center gap-2">
-                <StickyNote className="h-4 w-4 text-muted-foreground" /> Notes
-                {notes.length > 0 && <span className="text-xs bg-muted rounded-full px-2 py-0.5 font-bold text-muted-foreground">{notes.length}</span>}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              {/* Add note */}
-              <div className="flex gap-2">
-                <Textarea
-                  value={newNote}
-                  onChange={e => setNewNote(e.target.value)}
-                  placeholder="Add a note about this lead..."
-                  className="text-sm font-medium resize-none flex-1"
-                  rows={2}
-                  onKeyDown={e => { if (e.key === "Enter" && e.metaKey) handleAddNote() }}
-                />
-                <Button
-                  onClick={handleAddNote}
-                  disabled={addingNote || !newNote.trim()}
-                  size="icon"
-                  className="shrink-0 h-[72px] w-10 font-bold shadow-sm"
-                >
-                  {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
-              </div>
+            <Tabs defaultValue="notes" className="w-full">
+              <CardHeader className="pb-3 border-b border-border/50 bg-muted/5 flex flex-row items-center justify-between p-0 px-4 pt-2 h-14">
+                <TabsList className="bg-transparent space-x-2">
+                  <TabsTrigger value="notes" className="data-[state=active]:bg-background shadow-none border border-transparent data-[state=active]:border-border/50 data-[state=active]:shadow-sm text-xs font-bold gap-2">
+                    <StickyNote className="h-3.5 w-3.5" /> Internal Notes
+                    {notes.length > 0 && <span className="bg-muted px-1.5 py-0.5 rounded-full text-[9px]">{notes.length}</span>}
+                  </TabsTrigger>
+                  {lead.email && (
+                    <TabsTrigger value="email" className="data-[state=active]:bg-background shadow-none border border-transparent data-[state=active]:border-border/50 data-[state=active]:shadow-sm text-xs font-bold gap-2">
+                      <Send className="h-3.5 w-3.5" /> Send Email
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </CardHeader>
+              
+              <CardContent className="pt-4 space-y-4">
+                <TabsContent value="notes" className="space-y-4 m-0">
+                  {/* Add note */}
+                  <div className="flex gap-2">
+                    <Textarea
+                      value={newNote}
+                      onChange={e => setNewNote(e.target.value)}
+                      placeholder="Add a private internal note..."
+                      className="text-sm font-medium resize-none flex-1"
+                      rows={2}
+                      onKeyDown={e => { if (e.key === "Enter" && e.metaKey) handleAddNote() }}
+                    />
+                    <Button
+                      onClick={handleAddNote}
+                      disabled={addingNote || !newNote.trim()}
+                      size="icon"
+                      className="shrink-0 h-[72px] w-10 font-bold shadow-sm"
+                    >
+                      {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
 
-              {/* Notes list */}
-              {notes.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground border border-dashed border-border/50 rounded-lg bg-muted/5">
-                  <StickyNote className="h-6 w-6 mx-auto mb-1.5 opacity-20" />
-                  <p className="text-xs font-semibold">No notes yet</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {notes.map(note => (
-                    <div key={note.id} className="p-3 bg-muted/20 rounded-lg border border-border/40">
-                      <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{note.content}</p>
-                      <p className="text-[10px] text-muted-foreground font-bold mt-2 uppercase tracking-wider">
-                        {new Date(note.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </p>
+                  {/* Notes list */}
+                  {notes.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground border border-dashed border-border/50 rounded-lg bg-muted/5">
+                      <StickyNote className="h-6 w-6 mx-auto mb-1.5 opacity-20" />
+                      <p className="text-xs font-semibold">No activity logs yet</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
+                  ) : (
+                    <div className="space-y-3">
+                      {notes.map(note => (
+                        <div key={note.id} className="p-3 bg-muted/20 rounded-lg border border-border/40">
+                          <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold mt-2 uppercase tracking-wider">
+                            {new Date(note.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {lead.email && (
+                  <TabsContent value="email" className="space-y-4 m-0 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/10">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-muted-foreground uppercase">Recipient</Label>
+                        <div className="text-sm font-semibold">{lead.email}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <Input 
+                          placeholder="Subject Line" 
+                          value={emailSubject}
+                          onChange={e => setEmailSubject(e.target.value)}
+                          className="font-bold border-primary/20 focus-visible:ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Textarea 
+                          placeholder="Write your email message..."
+                          value={emailBody}
+                          onChange={e => setEmailBody(e.target.value)}
+                          rows={6}
+                          className="font-medium text-sm border-primary/20 focus-visible:ring-primary/20 resize-y"
+                        />
+                      </div>
+                      <Button 
+                        className="w-full font-bold shadow-sm" 
+                        onClick={handleSendEmail}
+                        disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim()}
+                      >
+                        {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
+                        Send Email to Lead
+                      </Button>
+                    </div>
+                  </TabsContent>
+                )}
+              </CardContent>
+            </Tabs>
           </Card>
         </div>
       </div>

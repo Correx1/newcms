@@ -13,12 +13,26 @@ export async function GET(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    // Fetch user profile to enforce role-based field masking
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+
     const { data: settings, error } = await supabase.from('settings').select('*').eq('id', 1).single()
     if (error && error.code !== 'PGRST116') {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ settings: settings || null })
+    if (!settings) {
+      return NextResponse.json({ settings: null })
+    }
+
+    // Scrub API keys and internal backend settings if NOT admin
+    if (profile?.role !== 'admin') {
+       delete settings.ai_api_key_override
+       delete settings.resend_api_key
+       // delete future api keys here
+    }
+
+    return NextResponse.json({ settings })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to fetch settings' }, { status: 500 })
   }
