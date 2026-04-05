@@ -66,10 +66,9 @@ export async function POST(request: Request) {
     }
 
     if (sendInvite) {
-      // Build the redirect URL: /auth/callback will exchange the token, then
-      // redirect to /setup-password where they set their password.
+      // Build the redirect URL: /setup-password for Implicit Hash flow
       const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-      const redirectTo = `${origin}/auth/callback?next=/setup-password`
+      const redirectTo = `${origin}/setup-password`
 
       // inviteUserByEmail creates the auth.users row (fires our trigger → profile created)
       // and sends the invite email with the correct redirect.

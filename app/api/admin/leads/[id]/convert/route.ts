@@ -48,18 +48,37 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Lead already converted', client_id: lead.converted_client_id }, { status: 400 })
     }
 
-    // Create a placeholder auth user so profile can reference auth.users
-    const placeholderEmail = `lead_${id.split('-')[0]}@noplincms.local`
+    // Use real email if present, otherwise fallback to placeholder
+    const emailToUse = lead.email ? lead.email.trim() : `lead_${id.split('-')[0]}@noplincms.local`
+    
+    let newUserId: string
 
-    const { data: authData, error: authError } = await auth.supabaseAdmin.auth.admin.createUser({
-      email: placeholderEmail,
-      email_confirm: true,
-      user_metadata: { name: lead.full_name, role: 'client' }
-    })
+    if (lead.email) {
+      const origin = _req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+      const redirectTo = `${origin}/setup-password`
+      
+      const { data: authData, error: authError } = await auth.supabaseAdmin.auth.admin.inviteUserByEmail(emailToUse, {
+        data: { name: lead.full_name, role: 'client' },
+        redirectTo
+      })
 
-    if (authError) throw authError
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+           return NextResponse.json({ error: 'A user with this email already exists in the system.' }, { status: 400 })
+        }
+        throw authError
+      }
+      newUserId = authData.user.id
+    } else {
+      const { data: authData, error: authError } = await auth.supabaseAdmin.auth.admin.createUser({
+        email: emailToUse,
+        email_confirm: true,
+        user_metadata: { name: lead.full_name, role: 'client' }
+      })
 
-    const newUserId = authData.user.id
+      if (authError) throw authError
+      newUserId = authData.user.id
+    }
 
     // Create client profile
     const { data: profile, error: profileError } = await auth.supabaseAdmin
@@ -67,7 +86,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       .upsert({
         id: newUserId,
         name: lead.full_name,
-        email: lead.email || placeholderEmail,
+        email: emailToUse,
         phone: lead.phone || null,
         company: lead.company || null,
         role: 'client',

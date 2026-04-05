@@ -60,21 +60,39 @@ export async function POST(
       return NextResponse.json({ error: 'Cannot dispatch invite to an unregistered dummy placeholder email. Edit the client first to provide a real email address.' }, { status: 400 })
     }
 
+    const { data: authData, error: getUserError } = await adminClient.auth.admin.getUserById(clientId)
+    if (getUserError || !authData?.user) {
+      return NextResponse.json({ error: 'Underlying Auth user not found' }, { status: 404 })
+    }
+    const authUser = authData.user
+
     const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const redirectTo = `${origin}/auth/callback?next=/setup-password`
+    const redirectTo = `${origin}/setup-password`
 
-    // Emit the recovery link structurally routing out as an invite replacement to securely onboard retroactively
-    const { error: inviteError } = await adminClient.auth.resetPasswordForEmail(
-      targetClient.email, 
-      { redirectTo }
-    )
+    // If email is unconfirmed, they haven't accepted their initial invite yet. Resend Invite "Set Password" template.
+    if (!authUser.email_confirmed_at) {
+      const { error: resendError } = await adminClient.auth.resend({
+        type: 'signup',
+        email: targetClient.email,
+        options: { emailRedirectTo: redirectTo }
+      })
 
-    if (inviteError) {
-      console.error('[client-invite] dispatch error:', inviteError.message)
-      return NextResponse.json({ error: inviteError.message }, { status: 400 })
+      if (resendError) {
+        console.error('[client-invite] resend invite error:', resendError.message)
+        // Fallback to reset logic if the resend API boundary flips
+        await adminClient.auth.resetPasswordForEmail(targetClient.email, { redirectTo })
+      }
+    } else {
+      // They are fully active. Send the "Reset Password" template.
+      const { error: resetError } = await adminClient.auth.resetPasswordForEmail(targetClient.email, { redirectTo })
+      
+      if (resetError) {
+        console.error('[client-invite] reset password error:', resetError.message)
+        return NextResponse.json({ error: resetError.message }, { status: 400 })
+      }
     }
 
-    return NextResponse.json({ ok: true, message: `Deferred invite email dispatched securely to ${targetClient.email}` })
+    return NextResponse.json({ ok: true, message: `Access link comprehensively navigated and dispatched to ${targetClient.email}` })
   } catch (err: any) {
     console.error('[client-invite] unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

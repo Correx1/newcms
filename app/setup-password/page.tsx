@@ -57,17 +57,9 @@ export default function SetupPasswordPage() {
     }
 
     try {
-      // 1️⃣ Set the password — with a timeout guard in case the auth lock is contested
-      const updateWithTimeout = () => new Promise<{ error: { message: string } | null }>((resolve) => {
-        const timer = setTimeout(() =>
-          resolve({ error: { message: "Request timed out. Please try again." } }), 15000)
-        supabase.auth.updateUser({ password }).then((result: { error: { message: string } | null }) => {
-          clearTimeout(timer)
-          resolve(result)
-        })
-      })
-
-      const { error: updateError } = await updateWithTimeout()
+      // 1️⃣ Set the password purely, relying on native SDK timeouts
+      const { error: updateError } = await supabase.auth.updateUser({ password })
+      
       if (updateError) {
         setErrorMsg(updateError.message)
         return
