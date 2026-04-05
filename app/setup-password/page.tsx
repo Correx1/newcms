@@ -87,12 +87,12 @@ export default function SetupPasswordPage() {
         }
       }
 
-      // 4️⃣ Show success, then do a full-page redirect to dashboard
-      //    (full reload ensures auth-context re-hydrates cleanly)
+      // 4️⃣ Show success, then intelligently redirect native to their designated dashboard
+      const role = user?.user_metadata?.role || 'client'
       setSuccess(true)
       setTimeout(() => {
-        window.location.href = "/"
-      }, 1500)
+        window.location.href = `/dashboard/${role}`
+      }, 600)
     } finally {
       // Always clear loading — even if updateUser hung or threw unexpectedly
       setLoading(false)
