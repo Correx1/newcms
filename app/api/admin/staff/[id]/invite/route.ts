@@ -60,7 +60,7 @@ export async function POST(
     }
 
     const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const redirectTo = `${origin}/auth/callback?next=/setup-password`
+    const redirectTo = `${origin}/auth/callback?next=/reset-password`
 
     const { error: inviteError } = await adminClient.auth.resetPasswordForEmail(
       targetStaff.email, 

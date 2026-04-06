@@ -67,24 +67,25 @@ export async function POST(
     const authUser = authData.user
 
     const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const redirectTo = `${origin}/setup-password`
+    const inviteRedirectTo = `${origin}/setup-password`  // for first-time unconfirmed users
+    const resetRedirectTo  = `${origin}/reset-password`  // for confirmed users resetting their password
 
     // If email is unconfirmed, they haven't accepted their initial invite yet. Resend Invite "Set Password" template.
     if (!authUser.email_confirmed_at) {
       const { error: resendError } = await adminClient.auth.resend({
         type: 'signup',
         email: targetClient.email,
-        options: { emailRedirectTo: redirectTo }
+        options: { emailRedirectTo: inviteRedirectTo }
       })
 
       if (resendError) {
         console.error('[client-invite] resend invite error:', resendError.message)
         // Fallback to reset logic if the resend API boundary flips
-        await adminClient.auth.resetPasswordForEmail(targetClient.email, { redirectTo })
+        await adminClient.auth.resetPasswordForEmail(targetClient.email, { redirectTo: resetRedirectTo })
       }
     } else {
       // They are fully active. Send the "Reset Password" template.
-      const { error: resetError } = await adminClient.auth.resetPasswordForEmail(targetClient.email, { redirectTo })
+      const { error: resetError } = await adminClient.auth.resetPasswordForEmail(targetClient.email, { redirectTo: resetRedirectTo })
       
       if (resetError) {
         console.error('[client-invite] reset password error:', resetError.message)

@@ -60,12 +60,14 @@ export async function GET(request: Request) {
     })
 
     if (!error) {
-      // For pure magic links used as sign-up, send to setup-password
-      const isSignup = type === 'signup' || type === 'magiclink' || type === 'email' || type === 'invite' || type === 'recovery'
-      const destination = next !== '/'
-        ? next
-        : isSignup ? '/setup-password' : '/'
-
+      // Route to the correct page based on what type of OTP this is
+      let defaultDestination = '/'
+      if (type === 'recovery') {
+        defaultDestination = '/reset-password'
+      } else if (type === 'signup' || type === 'magiclink' || type === 'email' || type === 'invite') {
+        defaultDestination = '/setup-password'
+      }
+      const destination = next !== '/' ? next : defaultDestination
       return NextResponse.redirect(`${origin}${destination}`)
     }
   }

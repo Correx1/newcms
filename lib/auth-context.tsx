@@ -101,10 +101,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // ── Password recovery ─────────────────────────────────────────────────
+        // ── Password recovery ─────────────────────────────────────────────────────
         if (event === "PASSWORD_RECOVERY") {
           setLoading(false)
-          router.push("/setup-password")
+          // Only navigate if not already on the reset-password page
+          const onResetPage = typeof window !== 'undefined' &&
+            window.location.pathname === '/reset-password'
+          if (!onResetPage) router.push("/reset-password")
           return
         }
 
@@ -112,14 +115,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setHasSession(true)
 
-          // When the user is on /setup-password, skip ALL profile fetching and
-          // redirects in this handler. fetchProfile() running concurrently with
-          // updateUser() steals the Supabase Web Lock → updateUser() hangs.
-          // The page owns its own flow completely; we just confirm there's a session.
-          if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") {
-            const onSetupPage = typeof window !== 'undefined' &&
-              window.location.pathname === '/setup-password'
-            if (onSetupPage) {
+          // When the user is on /setup-password or /reset-password, skip ALL
+          // profile fetching and redirects. fetchProfile() or any auth call
+          // running concurrently with updateUser() steals the Supabase Web Lock
+          // → updateUser() hangs. The page owns its own flow completely.
+          if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "USER_UPDATED") {
+            const onPasswordPage = typeof window !== 'undefined' && (
+              window.location.pathname === '/setup-password' ||
+              window.location.pathname === '/reset-password'
+            )
+            if (onPasswordPage) {
               if (mounted) setLoading(false)
               return
             }
