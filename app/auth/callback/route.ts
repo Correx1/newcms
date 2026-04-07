@@ -63,7 +63,9 @@ export async function GET(request: Request) {
       // Route to the correct page based on what type of OTP this is
       let defaultDestination = '/'
       if (type === 'recovery') {
-        defaultDestination = '/reset-password'
+        // Append ?via=recovery so the reset-password page knows this session
+        // was server-verified from a recovery token (not an existing admin session).
+        defaultDestination = '/reset-password?via=recovery'
       } else if (type === 'signup' || type === 'magiclink' || type === 'email' || type === 'invite') {
         defaultDestination = '/setup-password'
       }

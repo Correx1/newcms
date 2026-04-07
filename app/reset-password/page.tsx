@@ -22,14 +22,46 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
 
-  // Wait for Supabase to establish the PASSWORD_RECOVERY session from the link.
+  // Smart session detection — three distinct paths:
+  //
+  // 1. Callback flow (staff): server already verified the recovery token and
+  //    set a session cookie for the target user. URL has ?via=recovery.
+  //    → Activate form on INITIAL_SESSION (current session IS the recovery session).
+  //
+  // 2. Hash flow (client): recovery token is in the URL hash (#type=recovery).
+  //    Client-side Supabase will process it and fire PASSWORD_RECOVERY.
+  //    → Wait; activate form when PASSWORD_RECOVERY fires.
+  //
+  // 3. Direct navigation / no recovery token: admin or anyone with an
+  //    existing session visited this URL without a recovery link.
+  //    → Redirect to their own dashboard immediately.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const isCallbackRecovery = params.get('via') === 'recovery'
+    const hashHasRecovery = window.location.hash.includes('type=recovery')
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-      if (event === "PASSWORD_RECOVERY" || (event === "INITIAL_SESSION" && session)) {
+      if (event === "PASSWORD_RECOVERY") {
+        // Hash-based recovery token was processed. The active session is now
+        // the target user's recovery session — safe to activate the form.
         setSessionReady(true)
-      } else if (event === "INITIAL_SESSION" && !session) {
-        // No recovery session — send to login
-        router.replace("/")
+      } else if (event === "INITIAL_SESSION") {
+        if (!session) {
+          // No session at all — link is invalid or expired.
+          router.replace("/")
+        } else if (isCallbackRecovery) {
+          // Path 1: server-verified recovery. The cookie already belongs to
+          // the target user (not the admin). Activate the form.
+          setSessionReady(true)
+        } else if (hashHasRecovery) {
+          // Path 2: hash token present. Do nothing here — PASSWORD_RECOVERY
+          // will fire next and activate the form once the token is exchanged.
+        } else {
+          // Path 3: no recovery signals. An authenticated user (e.g. admin)
+          // opened this URL directly without a recovery link. Send them home.
+          const role = session.user?.user_metadata?.role || 'client'
+          window.location.href = `/dashboard/${role}`
+        }
       }
     })
     return () => subscription.unsubscribe()

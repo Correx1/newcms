@@ -28,12 +28,20 @@ export default function SetupPasswordPage() {
   // onAuthStateChange is the correct way to know when a session is truly ready.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
-        // Session established from the invite/recovery link — allow form
+      if (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') {
+        // Invite token was exchanged (SIGNED_IN) or recovery link was used.
+        // The active session now belongs to the invited/recovering user.
         setSessionReady(true)
-      } else if (event === 'INITIAL_SESSION' && !session) {
-        // No session and no hash to bootstrap from — send to login
-        router.replace("/")
+      } else if (event === 'INITIAL_SESSION') {
+        if (session) {
+          // Already authenticated user opened this URL directly.
+          // Send them to their dashboard — don't let their session activate the form.
+          const role = session.user?.user_metadata?.role || 'client'
+          window.location.href = `/dashboard/${role}`
+        } else {
+          // No session at all — invalid or expired link.
+          router.replace("/")
+        }
       }
     })
     return () => subscription.unsubscribe()
