@@ -11,54 +11,101 @@ import { Label } from "@/components/ui/label"
 import Image from "next/image"
 import { Loader2 } from "lucide-react"
 
+const VALID_ROLES = ['admin', 'staff', 'client']
+
 export default function ResetPasswordPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [password, setPassword] = useState("")
+  const [password, setPassword]               = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [errorMsg, setErrorMsg] = useState("")
-  const [success, setSuccess] = useState(false)
-  const [sessionReady, setSessionReady] = useState(false)
+  const [loading, setLoading]                 = useState(false)
+  const [errorMsg, setErrorMsg]               = useState("")
+  const [success, setSuccess]                 = useState(false)
+  const [sessionReady, setSessionReady]       = useState(false)
 
   useEffect(() => {
+    let cancelled = false
+
+    // ── Step 1: subscribe to auth events ─────────────────────────────────────
+    // Handles hash-based recovery tokens (#type=recovery&access_token=...).
+    // When the Supabase SDK processes the URL hash it fires PASSWORD_RECOVERY.
+    // SIGNED_IN fires when a PKCE recovery code is auto-exchanged client-side.
+    // Both mean: this is a legitimate recovery session — show the form.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event: any, _session: any) => {
+        if (cancelled) return
+        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+          setSessionReady(true)
+        }
+      }
+    )
+
+    // ── Step 2: check URL-based recovery context ──────────────────────────────
     const initRecovery = async () => {
-      const params = new URLSearchParams(window.location.search)
+      const params = new URLSearchParams(
+        typeof window !== 'undefined' ? window.location.search : ''
+      )
       const isCallbackRecovery = params.get("via") === "recovery"
 
       if (isCallbackRecovery) {
-        // auth/callback already verified the recovery token server-side and
-        // wrote a valid session into cookies. The form is ready to use.
-        setSessionReady(true)
+        // auth/callback exchanged the recovery token server-side, signed out the
+        // previous session, and wrote the staff/client session into cookies.
+        // The session is correct — show the form immediately.
+        if (!cancelled) setSessionReady(true)
         return
       }
 
-      // No ?via=recovery — check if there is any active session at all
+      // Check for hash-based recovery tokens in the URL fragment.
+      // If present, the Supabase SDK is processing them asynchronously.
+      // Calling getSession() here would return whatever cookies hold right now
+      // (possibly the wrong/admin session). Wait for PASSWORD_RECOVERY to fire.
+      const hash = typeof window !== 'undefined' ? window.location.hash : ''
+      const hasRecoveryHash =
+        hash.includes('type=recovery') ||
+        (hash.includes('access_token') && hash.includes('type='))
+
+      if (hasRecoveryHash) {
+        // onAuthStateChange will fire PASSWORD_RECOVERY → setSessionReady(true)
+        return
+      }
+
+      // No recovery context at all — check if there's an existing session.
       const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled) return
 
       if (!session) {
-        // No session and no recovery flag — expired or invalid link
+        // No session and no recovery token → expired / invalid link.
         router.replace("/")
         return
       }
 
-      // Active session but no recovery flag → already-logged-in user visited
-      // this page directly. Redirect them to their correct dashboard.
-      // Use the profiles table (source of truth) instead of user_metadata.
+      // An authenticated user navigated to /reset-password directly.
+      // Redirect them to their correct dashboard (source of truth: profiles table).
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", session.user.id)
         .single()
 
-      const role = profile?.role || "client"
+      const role = profile?.role
+      if (!role || !VALID_ROLES.includes(role)) {
+        // No valid CMS profile — exile to marketing site
+        if (typeof window !== 'undefined') window.location.href = 'https://noplin.com'
+        return
+      }
       window.location.href = `/dashboard/${role}`
     }
 
     initRecovery()
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [supabase, router])
 
+  // ── Form submission ───────────────────────────────────────────────────────
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -84,22 +131,27 @@ export default function ResetPasswordPage() {
         return
       }
 
+      // Get the current user (who is now the staff/client — session was switched
+      // by auth/callback before we got here).
       const { data: { user } } = await supabase.auth.getUser()
 
-      let role: string = user?.user_metadata?.role || "client"
-
-      if (user) {
+      const role = await (async () => {
+        if (!user) return null
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", user.id)
           .single()
+        return profile?.role ?? null
+      })()
 
-        if (profile?.role) role = profile.role
+      if (!role || !VALID_ROLES.includes(role)) {
+        // Profile missing or invalid — exile
+        window.location.href = 'https://noplin.com'
+        return
       }
 
       setSuccess(true)
-
       setTimeout(() => {
         window.location.href = `/dashboard/${role}`
       }, 600)
@@ -108,6 +160,7 @@ export default function ResetPasswordPage() {
     }
   }
 
+  // ── UI ────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-6 md:p-6">
       <div className="w-full max-w-sm sm:max-w-md animate-in fade-in zoom-in duration-500 flex flex-col items-center">
