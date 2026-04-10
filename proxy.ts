@@ -14,7 +14,7 @@ const PROTECTED_PREFIXES = [
 // Paths that bypass middleware completely (auth utilities)
 const BYPASS_PATHS = ['/auth/callback', '/setup-password', '/reset-password', '/api/']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request: { headers: request.headers },
   })
