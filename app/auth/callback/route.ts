@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
       const destination = next !== '/'
         ? next
-        : isNewUser ? '/setup-password' : '/'
+        : isNewUser ? '/setup-password?via=invite' : '/'
 
       return NextResponse.redirect(`${origin}${destination}`)
     }
@@ -66,11 +66,9 @@ export async function GET(request: Request) {
       // Route to the correct page based on what type of OTP this is
       let defaultDestination = '/'
       if (type === 'recovery') {
-        // Append ?via=recovery so the reset-password page knows this session
-        // was server-verified from a recovery token (not an existing admin session).
         defaultDestination = '/reset-password?via=recovery'
       } else if (type === 'signup' || type === 'magiclink' || type === 'email' || type === 'invite') {
-        defaultDestination = '/setup-password'
+        defaultDestination = '/setup-password?via=invite'
       }
       const destination = next !== '/' ? next : defaultDestination
       return NextResponse.redirect(`${origin}${destination}`)

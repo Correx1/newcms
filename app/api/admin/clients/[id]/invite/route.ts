@@ -67,8 +67,10 @@ export async function POST(
     const authUser = authData.user
 
     const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const inviteRedirectTo = `${origin}/setup-password`  // for first-time unconfirmed users
-    const resetRedirectTo  = `${origin}/reset-password`  // for confirmed users resetting their password
+    // Route through auth/callback so the PKCE code is exchanged server-side.
+    // auth/callback then redirects to the destination with ?via=invite.
+    const inviteRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent('/setup-password?via=invite')}`
+    const resetRedirectTo  = `${origin}/auth/callback?next=${encodeURIComponent('/reset-password?via=recovery')}`
 
     // If email is unconfirmed, they haven't accepted their initial invite yet. Resend Invite "Set Password" template.
     if (!authUser.email_confirmed_at) {

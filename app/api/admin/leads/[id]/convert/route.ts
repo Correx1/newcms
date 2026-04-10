@@ -55,7 +55,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     if (lead.email) {
       const origin = _req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-      const redirectTo = `${origin}/setup-password`
+      // Route through auth/callback so the PKCE code is exchanged server-side.
+      // auth/callback redirects to /setup-password?via=invite once done.
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent('/setup-password?via=invite')}`
       
       const { data: authData, error: authError } = await auth.supabaseAdmin.auth.admin.inviteUserByEmail(emailToUse, {
         data: { name: lead.full_name, role: 'client' },

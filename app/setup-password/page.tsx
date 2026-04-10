@@ -29,32 +29,40 @@ export default function SetupPasswordPage() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') {
-        // Invite token was exchanged (SIGNED_IN) or recovery link fired.
-        // The session now belongs to the invited user — allow the form.
+        // Implicit-flow invite: hash tokens were processed by the SDK → SIGNED_IN fires.
+        // The session belongs to the invited user — allow the form.
         setSessionReady(true)
       } else if (event === 'INITIAL_SESSION') {
-        if (session) {
-          // There is an active session already. Two possibilities:
-          // 1. An already-logged-in user navigated here directly → redirect away.
-          // 2. A brand-new invite user arrived via hash tokens → SIGNED_IN will
-          //    fire next and setSessionReady(true). Don't redirect in this case.
-          //
-          // Distinguish by checking if there are auth hash tokens in the URL.
-          // New invite links contain #access_token=... in the URL fragment.
-          const hasAuthHash = typeof window !== 'undefined' &&
-            (window.location.hash.includes('access_token') ||
-             window.location.hash.includes('type='))
+        const params = new URLSearchParams(
+          typeof window !== 'undefined' ? window.location.search : ''
+        )
+        const isViaInvite = params.get('via') === 'invite'
+        const hasAuthHash  = typeof window !== 'undefined' &&
+          (window.location.hash.includes('access_token') ||
+           window.location.hash.includes('type='))
 
-          if (!hasAuthHash) {
-            // No hash → already-logged-in user. Redirect to root.
-            // Middleware will route them to their correct dashboard using
-            // the profiles table (not user_metadata which can be stale).
-            router.replace("/")
+        if (session) {
+          if (isViaInvite) {
+            // PKCE invite: auth/callback exchanged the code server-side and set
+            // session cookies, then redirected here with ?via=invite.
+            // SIGNED_IN will NOT fire (exchange was server-side) — set ready now.
+            setSessionReady(true)
+          } else if (!hasAuthHash) {
+            // Session present, no invite flag, no hash tokens → this is an
+            // already-logged-in user who navigated here directly. Redirect away.
+            // Middleware sends them to their correct dashboard via profiles table.
+            router.replace('/')
           }
-          // If hash is present, SIGNED_IN fires next — do nothing here.
+          // hasAuthHash present → implicit-flow invite, SIGNED_IN fires next.
         } else {
-          // No session and no hash → invalid or expired invite link.
-          router.replace("/")
+          // No session. If there is a ?code= in the URL the SDK has not yet
+          // exchanged it — wait for SIGNED_IN rather than bailing immediately.
+          const hasPkceCode = typeof window !== 'undefined' &&
+            window.location.search.includes('code=')
+          if (!hasPkceCode && !hasAuthHash) {
+            // Truly nothing pending — expired or invalid invite link.
+            router.replace('/')
+          }
         }
       }
     })
