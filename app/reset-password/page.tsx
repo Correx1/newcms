@@ -24,41 +24,35 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const initRecovery = async () => {
-      const hash = window.location.hash
       const params = new URLSearchParams(window.location.search)
       const isCallbackRecovery = params.get("via") === "recovery"
 
-      // 🔥 Handle hash-based recovery (email link)
-      if (hash.includes("type=recovery")) {
-        await supabase.auth.signOut()
-
-        const { error } = await supabase.auth.exchangeCodeForSession(window.location.href)
-
-        if (error) {
-          console.error("Recovery exchange failed:", error.message)
-          router.replace("/")
-          return
-        }
-
+      if (isCallbackRecovery) {
+        // auth/callback already verified the recovery token server-side and
+        // wrote a valid session into cookies. The form is ready to use.
         setSessionReady(true)
         return
       }
 
-      // 🔥 Handle server-side recovery (?via=recovery)
+      // No ?via=recovery — check if there is any active session at all
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session) {
+        // No session and no recovery flag — expired or invalid link
         router.replace("/")
         return
       }
 
-      if (isCallbackRecovery) {
-        setSessionReady(true)
-        return
-      }
+      // Active session but no recovery flag → already-logged-in user visited
+      // this page directly. Redirect them to their correct dashboard.
+      // Use the profiles table (source of truth) instead of user_metadata.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single()
 
-      // 🔥 Normal logged-in user → redirect away
-      const role = session.user?.user_metadata?.role || "client"
+      const role = profile?.role || "client"
       window.location.href = `/dashboard/${role}`
     }
 

@@ -19,9 +19,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   
-  // Toggle between Password Login and Magic Link flows
-  const [loginMode, setLoginMode] = useState<"password" | "magic_link">("password")
-  const [sentMagicLink, setSentMagicLink] = useState(false)
+  // Toggle between Password Login and Forgot Password flows
+  const [loginMode, setLoginMode] = useState<"password" | "forgot_password">("password")
+  const [sentResetLink, setSentResetLink] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,18 +36,16 @@ export default function LoginPage() {
       if (error) {
         setErrorMsg(error.message)
       }
-      // Success is handled automatically by AuthContext onAuthStateChange generating router.push()
+      // Success is handled automatically by AuthContext onAuthStateChange
     } else {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${location.origin}/setup-password`
-        }
-      })
+      // Forgot password — send a proper reset email routed through auth/callback.
+      // auth/callback verifies the token and redirects to /reset-password?via=recovery.
+      const redirectTo = `${location.origin}/auth/callback?next=${encodeURIComponent('/reset-password?via=recovery')}`
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
       if (error) {
         setErrorMsg(error.message)
       } else {
-        setSentMagicLink(true)
+        setSentResetLink(true)
       }
     }
     
@@ -67,11 +65,12 @@ export default function LoginPage() {
         </div>
 
         <Card className="w-full border-border/50 shadow-xl shadow-primary/5 dark:shadow-none bg-card/50 backdrop-blur-xl transition-all">
-          {sentMagicLink ? (
+          {sentResetLink ? (
              <div className="p-8 pb-10 text-center flex flex-col items-center">
                 <ShieldCheck className="h-12 w-12 text-emerald-500 mb-4" />
-               
-                <Button variant="outline" className="mt-6 w-full" onClick={() => setSentMagicLink(false)}>Back to Login</Button>
+                <p className="font-semibold text-base">Password reset email sent</p>
+                <p className="text-muted-foreground text-sm mt-2 max-w-xs">Check your inbox and click the link to reset your password.</p>
+                <Button variant="outline" className="mt-6 w-full" onClick={() => { setSentResetLink(false); setLoginMode("password") }}>Back to Login</Button>
              </div>
           ) : (
             <form onSubmit={handleLogin} className="flex flex-col h-full">
@@ -102,7 +101,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <button type="button" onClick={() => setLoginMode("magic_link")} className="text-xs text-primary hover:underline font-medium">Forgot Password?</button>
+                      <button type="button" onClick={() => setLoginMode("forgot_password")} className="text-xs text-primary hover:underline font-medium">Forgot Password?</button>
                     </div>
                     <Input 
                       id="password" 
@@ -118,7 +117,7 @@ export default function LoginPage() {
                 
                 <div className="pt-2">
                   <Button type="submit" className="w-full text-base h-11" disabled={loading}>
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (loginMode === "password" ? "Sign In" : "Send Magic Link")}
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (loginMode === "password" ? "Sign In" : "Send Reset Link")}
                   </Button>
                 </div>
                 

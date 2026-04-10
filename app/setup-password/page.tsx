@@ -29,17 +29,31 @@ export default function SetupPasswordPage() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') {
-        // Invite token was exchanged (SIGNED_IN) or recovery link was used.
-        // The active session now belongs to the invited/recovering user.
+        // Invite token was exchanged (SIGNED_IN) or recovery link fired.
+        // The session now belongs to the invited user — allow the form.
         setSessionReady(true)
       } else if (event === 'INITIAL_SESSION') {
         if (session) {
-          // Already authenticated user opened this URL directly.
-          // Send them to their dashboard — don't let their session activate the form.
-          const role = session.user?.user_metadata?.role || 'client'
-          window.location.href = `/dashboard/${role}`
+          // There is an active session already. Two possibilities:
+          // 1. An already-logged-in user navigated here directly → redirect away.
+          // 2. A brand-new invite user arrived via hash tokens → SIGNED_IN will
+          //    fire next and setSessionReady(true). Don't redirect in this case.
+          //
+          // Distinguish by checking if there are auth hash tokens in the URL.
+          // New invite links contain #access_token=... in the URL fragment.
+          const hasAuthHash = typeof window !== 'undefined' &&
+            (window.location.hash.includes('access_token') ||
+             window.location.hash.includes('type='))
+
+          if (!hasAuthHash) {
+            // No hash → already-logged-in user. Redirect to root.
+            // Middleware will route them to their correct dashboard using
+            // the profiles table (not user_metadata which can be stale).
+            router.replace("/")
+          }
+          // If hash is present, SIGNED_IN fires next — do nothing here.
         } else {
-          // No session at all — invalid or expired link.
+          // No session and no hash → invalid or expired invite link.
           router.replace("/")
         }
       }
@@ -95,12 +109,34 @@ export default function SetupPasswordPage() {
         }
       }
 
-      // 4️⃣ Show success, then intelligently redirect native to their designated dashboard
-      const role = user?.user_metadata?.role || 'client'
+      // 4️⃣ Force a session token refresh so cookies are fully written to the
+      //    browser BEFORE we do a full-page reload. Without this, the page
+      //    reload can race against Supabase's async cookie write and the
+      //    middleware/auth-context may find no valid session → redirect to login.
+      await supabase.auth.refreshSession()
+
+      // 5️⃣ Read role from the profiles table — source of truth.
+      //    We just called ensure-profile so the row is guaranteed to exist.
+      //    Never fall back to user_metadata.role or a hardcoded string here.
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+      const role = profileRow?.role as string | undefined
+
+      if (!role || !['admin', 'staff', 'client'].includes(role)) {
+        // Profile was not created (ensure-profile rejected the role).
+        // Exile — do not grant dashboard access under any circumstances.
+        window.location.href = 'https://noplin.com'
+        return
+      }
+
       setSuccess(true)
       setTimeout(() => {
         window.location.href = `/dashboard/${role}`
-      }, 600)
+      }, 800)
     } finally {
       // Always clear loading — even if updateUser hung or threw unexpectedly
       setLoading(false)

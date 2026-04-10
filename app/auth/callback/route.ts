@@ -11,8 +11,11 @@ export async function GET(request: Request) {
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') // 'signup' | 'magiclink' | 'recovery' | 'email_change' | 'invite'
 
-  // Where to go after a successful exchange (caller can override via ?next=)
-  const next = searchParams.get('next') ?? '/'
+  // Where to go after a successful exchange (caller can override via ?next=).
+  // SECURITY: validate it's a relative path — reject anything that could be
+  // used as an open redirect (e.g. ?next=//evil.com or ?next=https://evil.com).
+  const rawNext = searchParams.get('next') ?? '/'
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/'
 
   const cookieStore = await cookies()
   const supabase = createServerClient(

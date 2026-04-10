@@ -45,10 +45,14 @@ export async function POST(request: Request) {
       ?? user.user_metadata?.name
       ?? user.email?.split('@')[0]
       ?? 'User'
-    // Default to 'staff' to match the schema trigger default
-    const role: string = body.role
-      ?? user.user_metadata?.role
-      ?? 'staff'
+    // Role MUST come from the request body or user_metadata — no fallback default.
+    // If role is missing, the user should not receive a profile or any dashboard access.
+    const role: string | undefined = body.role ?? user.user_metadata?.role
+
+    if (!role || !['admin', 'staff', 'client'].includes(role)) {
+      console.error('[ensure-profile] rejected: missing or invalid role', { userId: user.id, role })
+      return NextResponse.json({ error: 'User role is missing or invalid. Contact your administrator.' }, { status: 400 })
+    }
 
     // 3. Use admin client (service role) to bypass RLS and upsert the profile
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
