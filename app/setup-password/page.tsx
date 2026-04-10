@@ -176,12 +176,9 @@ export default function SetupPasswordPage() {
         return
       }
 
-      // 4. Refresh the session so cookies are fully written before the
-      //    hard navigation. Prevents a race where middleware finds a stale
-      //    session and redirects to login on the very first dashboard load.
-      await supabase.auth.refreshSession()
-
-      // 5. Read the role from the profiles table — the single source of truth.
+      // 4. Read the role from the profiles table — the single source of truth.
+      //    updateUser() already refreshes the session tokens internally.
+      //    Calling refreshSession() again here deadlocks the Supabase Web Lock.
       //    Never use user_metadata.role or any hardcoded fallback here.
       const { data: profileRow } = await supabase
         .from('profiles')
