@@ -28,8 +28,6 @@ const AUTH_BYPASS_PATHS = [
 ]
 
 // ── API paths that are genuinely public (no Supabase session required) ────
-// Webhook handlers and similar must be listed here explicitly.
-// Everything else under /api/ requires a valid session.
 const PUBLIC_API_PATHS: string[] = [
   // e.g. '/api/webhooks/stripe',
 ]
@@ -78,9 +76,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // 2. API routes — middleware-level blanket auth gate ───────────────────────
-  // Each individual route still does its own role check, but this ensures no
-  // unauthenticated request even reaches the route handler.
-  // Public API paths (webhooks etc.) are explicitly whitelisted above.
+
   if (pathname.startsWith('/api/')) {
     const isPublic = PUBLIC_API_PATHS.some((p) => pathname.startsWith(p))
     if (!isPublic && !user) {
@@ -125,6 +121,22 @@ export async function middleware(request: NextRequest) {
     // Protected page — authenticated but no valid CMS role → exile
     if (isProtected && !hasValidRole) {
       return NextResponse.redirect(FALLBACK_URL)
+    }
+
+    // Role-route enforcement: /dashboard/[role] must match the user's actual role.
+    // Prevents admins from viewing /dashboard/client (or any cross-role dashboard)
+    // by manually editing the URL.
+    if (isProtected && hasValidRole) {
+      const dashboardRoleMatch = pathname.match(/^\/dashboard\/(admin|staff|client)/)
+      if (dashboardRoleMatch) {
+        const urlRole = dashboardRoleMatch[1]
+        if (urlRole !== profile!.role) {
+          // Silently send them to their correct dashboard
+          return NextResponse.redirect(
+            new URL(`/dashboard/${profile!.role}`, request.url)
+          )
+        }
+      }
     }
   }
 

@@ -28,10 +28,7 @@ export default function ResetPasswordPage() {
     let cancelled = false
 
     // ── Step 1: subscribe to auth events ─────────────────────────────────────
-    // Handles hash-based recovery tokens (#type=recovery&access_token=...).
-    // When the Supabase SDK processes the URL hash it fires PASSWORD_RECOVERY.
-    // SIGNED_IN fires when a PKCE recovery code is auto-exchanged client-side.
-    // Both mean: this is a legitimate recovery session — show the form.
+  
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: any, _session: any) => {
         if (cancelled) return

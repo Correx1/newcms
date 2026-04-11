@@ -47,12 +47,11 @@ async function ensureProfile(name?: string, role?: string): Promise<void> {
 }
 
 // ── Session timeout configuration ─────────────────────────────────────────
-// Adjust these constants to tune how aggressively sessions are expired.
-const MAX_SESSION_MS = 8 * 60 * 60 * 1000   // 8 hours  — absolute limit regardless of activity
-const INACTIVITY_MS  = 2 * 60 * 60 * 1000   // 2 hours  — idle sign-out
-const CHECK_EVERY_MS = 60 * 1000             // How often to run the expiry check (every 60 s)
-const LOGIN_TS_KEY   = 'noplin_login_ts'     // sessionStorage key: when the session started
-const ACTIVE_TS_KEY  = 'noplin_active_ts'    // sessionStorage key: last user interaction
+const INACTIVITY_MS  = 2 * 60 * 60 * 1000   // 2 hours idle → auto sign-out
+const WARN_BEFORE_MS = 5 * 60 * 1000         // Warn 5 minutes before idle logout
+const CHECK_EVERY_MS = 60 * 1000             // Check every 60 s
+const ACTIVE_TS_KEY  = 'noplin_active_ts'    // sessionStorage: last user interaction
+const WARNED_TS_KEY  = 'noplin_warned_ts'    // sessionStorage: when warning was shown
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -102,8 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false)
           // Clear session timeout trackers so the timer doesn't fire post-logout
           if (typeof window !== 'undefined') {
-            sessionStorage.removeItem(LOGIN_TS_KEY)
             sessionStorage.removeItem(ACTIVE_TS_KEY)
+            sessionStorage.removeItem(WARNED_TS_KEY)
           }
           router.push("/")
           return
@@ -126,13 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setHasSession(true)
 
-          // Record when this session was first seen in this browser tab.
-          // sessionStorage is cleared on browser/tab close, so re-opening
-          // always starts a fresh timer — the intended behaviour.
-          if (typeof window !== 'undefined' && !sessionStorage.getItem(LOGIN_TS_KEY)) {
-            const ts = Date.now().toString()
-            sessionStorage.setItem(LOGIN_TS_KEY, ts)
-            sessionStorage.setItem(ACTIVE_TS_KEY, ts)
+          // Record the first activity timestamp for this tab so the idle
+          // timer has a baseline to measure inactivity against.
+          if (typeof window !== 'undefined' && !sessionStorage.getItem(ACTIVE_TS_KEY)) {
+            sessionStorage.setItem(ACTIVE_TS_KEY, Date.now().toString())
           }
 
           // When the user is on /setup-password or /reset-password, skip ALL
@@ -209,33 +205,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, router])
 
-  // ── Session timeout: inactivity + absolute duration ──────────────────────
-  // Runs independently from the auth subscription. Checks every 60 s whether
-  // the session has exceeded MAX_SESSION_MS (absolute) or INACTIVITY_MS (idle).
-  // Activity events (mouse, keyboard, scroll, touch) reset the inactivity clock.
+  // ── Session timeout: idle-only ────────────────────────────────────────────
+  // Active users are NEVER forced out — only users idle for 2 h are signed out.
+  // 5 minutes before the idle limit hits, a warning toast fires giving the user
+  // a chance to stay logged in. Activity events reset the inactivity clock.
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const updateActivity = () =>
+    const updateActivity = () => {
       sessionStorage.setItem(ACTIVE_TS_KEY, Date.now().toString())
+      // If user acts after the warning was shown, dismiss it
+      sessionStorage.removeItem(WARNED_TS_KEY)
+    }
 
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const
     events.forEach((e) => window.addEventListener(e, updateActivity, { passive: true }))
 
     const timer = setInterval(async () => {
-      const loginTs  = sessionStorage.getItem(LOGIN_TS_KEY)
       const activeTs = sessionStorage.getItem(ACTIVE_TS_KEY)
-      if (!loginTs) return   // No tracked session — nothing to do
+      if (!activeTs) return  // Session not yet tracked
 
-      const now        = Date.now()
-      const sessionAge = now - parseInt(loginTs,  10)
-      const inactive   = now - parseInt(activeTs ?? loginTs, 10)
+      const now      = Date.now()
+      const inactive = now - parseInt(activeTs, 10)
 
-      if (sessionAge > MAX_SESSION_MS || inactive > INACTIVITY_MS) {
-        sessionStorage.removeItem(LOGIN_TS_KEY)
+      if (inactive > INACTIVITY_MS) {
+        // Time's up — sign out
         sessionStorage.removeItem(ACTIVE_TS_KEY)
-        await supabase.auth.signOut()
-        // The SIGNED_OUT handler above fires next → clears state → router.push("/")
+        sessionStorage.removeItem(WARNED_TS_KEY)
+        try {
+          await Promise.race([
+            supabase.auth.signOut(),
+            new Promise<void>((_, r) => setTimeout(() => r(new Error('timeout')), 3000)),
+          ])
+        } catch {
+          Object.keys(localStorage).forEach((k) => {
+            if (k.startsWith('sb-')) localStorage.removeItem(k)
+          })
+        } finally {
+          window.location.href = '/'
+        }
+        return
+      }
+
+      // Warn 5 minutes before idle logout (only warn once per idle window)
+      const timeLeft  = INACTIVITY_MS - inactive
+      const alreadyWarnedAt = sessionStorage.getItem(WARNED_TS_KEY)
+
+      if (timeLeft <= WARN_BEFORE_MS && !alreadyWarnedAt) {
+        sessionStorage.setItem(WARNED_TS_KEY, now.toString())
+        // Dynamically import toast to avoid bundling sonner in all contexts
+        import('sonner').then(({ toast }) => {
+          toast.warning('Your session is about to expire', {
+            description: 'You will be logged out in 5 minutes due to inactivity.',
+            duration: 4 * 60 * 1000, // show for 4 minutes
+            action: {
+              label: 'Stay logged in',
+              onClick: () => {
+                sessionStorage.setItem(ACTIVE_TS_KEY, Date.now().toString())
+                sessionStorage.removeItem(WARNED_TS_KEY)
+              },
+            },
+          })
+        })
       }
     }, CHECK_EVERY_MS)
 
@@ -246,7 +277,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    try {
+      // Race signOut against a 3-second timeout.
+      // If the Supabase Web Lock is held by a background token refresh,
+      // signOut() will hang indefinitely. The timeout wins in that case:
+      // we clear storage manually and force a hard redirect, so the user
+      // is always logged out regardless of the lock state.
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('signOut timeout')), 3000)
+        ),
+      ])
+    } catch {
+      // signOut timed out or failed — clear everything manually
+      try {
+        // Remove all Supabase auth keys from localStorage
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('sb-')) localStorage.removeItem(key)
+        })
+        sessionStorage.removeItem(ACTIVE_TS_KEY)
+        sessionStorage.removeItem(WARNED_TS_KEY)
+      } catch { /* storage unavailable in some private-browsing modes */ }
+    } finally {
+      // Hard navigation clears any in-memory state and hits the login page clean
+      window.location.href = '/'
+    }
   }
 
   return (
